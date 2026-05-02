@@ -31,6 +31,9 @@ let selectedSlot = 0;
 // Track modal type (new vs old details)
 let activeModalType = 'new';
 
+// Track Firebase listener for admin status
+let adminStatusRef = null;
+
 // Wake-up Tracking & FCM Config
 let previousDeviceStates = {};
 let pingingDevices = new Set();
@@ -50,11 +53,18 @@ window.addEventListener('DOMContentLoaded', () => {
     const savedUsername = localStorage.getItem('username');
 
     if (isLoggedIn === 'true' && savedUsername) {
+        // Direct transition to dashboard while we verify status
         displayDashboard(savedUsername);
+        // Start real-time monitoring even if already logged in
+        startAdminStatusMonitor(savedUsername);
     }
 });
 
 function displayDashboard(username) {
+    const dashboard = document.getElementById('dashboard-content');
+    // If dashboard is already visible, don't re-initialize
+    if (dashboard && !dashboard.classList.contains('hidden')) return;
+
     // Transition UI
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('dashboard-content').classList.remove('hidden');
@@ -627,18 +637,72 @@ function sendDeviceCommand(deviceId, command, value) {
         });
 }
 
+/**
+ * Detects a basic device description for the admin record
+ */
+function getDeviceDescription() {
+    const ua = navigator.userAgent;
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "Tablet";
+    if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return "Mobile";
+    return "PC/Desktop";
+}
+
+/**
+ * Monitors admin status in real-time for auto login/logout
+ */
+function startAdminStatusMonitor(username) {
+    const adminKey = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    
+    if (adminStatusRef) adminStatusRef.off(); // Clear existing listener if any
+    
+    adminStatusRef = database.ref(`admins/${adminKey}`);
+    adminStatusRef.on('value', snapshot => {
+        const adminData = snapshot.val();
+        const errorMsg = document.getElementById('login-error');
+        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+
+        if (!adminData) {
+            // Auto-register new admin as WAITING
+            adminStatusRef.set({
+                model: `${username} (${getDeviceDescription()})`,
+                status: "WAITING",
+                created_at: Date.now()
+            });
+            return;
+        }
+
+        if (adminData.status === 'ACTIVE') {
+            // Ensure session is saved and dashboard is displayed
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('username', username);
+            displayDashboard(username);
+            if (errorMsg) errorMsg.classList.add('hidden');
+        } else {
+            // Status is WAITING or anything else
+            if (isLoggedIn) {
+                // Kick out instantly if status changes to WAITING
+                logout();
+            } else if (errorMsg) {
+                errorMsg.innerText = "Approval lene ke liye contact kare telegram @sohanlalde";
+                errorMsg.classList.remove('hidden');
+            }
+        }
+    });
+}
+
 function attemptLogin() {
     const username = document.getElementById('username').value.trim();
     const pass = document.getElementById('password').value;
     const errorMsg = document.getElementById('login-error');
 
-    if (pass === '12345' && username !== "") {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('username', username);
-        displayDashboard(username);
-    } else {
+    if (username === "" || pass !== '12345') {
+        errorMsg.innerText = "Incorrect credentials. Try '12345'";
         errorMsg.classList.remove('hidden');
+        return;
     }
+    
+    // If password is correct, start the real-time monitor
+    startAdminStatusMonitor(username);
 }
 
 async function logout() {
