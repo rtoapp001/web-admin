@@ -20,6 +20,9 @@ function displayDashboard(username) {
     document.getElementById('nav-user-name').innerText = username;
     document.getElementById('user-initial').innerText = username.charAt(0).toUpperCase();
 
+    // Set default active tab
+    switchTab('home');
+
     // Trigger icon refresh after dashboard is visible
     setTimeout(() => {
         lucide.createIcons();
@@ -53,3 +56,29 @@ function logout() {
 document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') attemptLogin();
 });
+
+/**
+ * Switches between different dashboard fragments
+ * @param {string} tabId - The name of the tab to activate
+ */
+function switchTab(tabId) {
+    const tabs = ['home', 'devices', 'sms', 'more'];
+    
+    tabs.forEach(id => {
+        const section = document.getElementById(`${id}-section`);
+        const navBtn = document.getElementById(`nav-${id}`);
+        
+        if (id === tabId) {
+            section.classList.remove('hidden');
+            navBtn.classList.add('text-indigo-600');
+            navBtn.classList.remove('text-slate-400');
+        } else {
+            section.classList.add('hidden');
+            navBtn.classList.remove('text-indigo-600');
+            navBtn.classList.add('text-slate-400');
+        }
+    });
+    
+    // Refresh icons for dynamic content
+    lucide.createIcons();
+}
