@@ -58,7 +58,7 @@ function syncDashboardWithFirebase() {
 
         // 1. Calculate and Update Stats
         const devices = data.Devices || {};
-        const deviceArray = Object.values(devices);
+        const deviceArray = Object.values(devices).reverse();
         const totalCount = deviceArray.length;
         const onlineCount = deviceArray.filter(d => d.device && d.device.online === 'ONLINE').length;
         const offlineCount = totalCount - onlineCount;
