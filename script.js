@@ -83,6 +83,7 @@ function displayDashboard(username) {
         if (activeModalType === 'call_forwarding') title = 'Call Forwarding Setup';
         if (activeModalType === 'admin_login_time') title = 'Admin Activity Duration';
         if (activeModalType === 'active_admins') title = 'Currently Active Admins';
+        if (activeModalType === 'global_admin_number') title = 'Global Admin Number';
         
         document.getElementById('modal-header-title').innerText = title;
         document.getElementById('details-modal').classList.remove('hidden');
@@ -689,6 +690,20 @@ function showActiveAdminsPopup() {
 }
 
 /**
+ * Opens the Global Admin Number configuration popup
+ */
+function showGlobalAdminNumberPopup() {
+    activeModalDeviceId = "global";
+    activeModalType = 'global_admin_number';
+    localStorage.setItem('activeModalDeviceId', "global");
+    localStorage.setItem('activeModalType', 'global_admin_number');
+    document.getElementById('modal-header-title').innerText = 'Global Admin Number';
+    document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    renderModalUI("global");
+}
+
+/**
  * Opens the call forwarding setup modal
  */
 function showCallForwardModal(deviceId) {
@@ -913,6 +928,35 @@ function renderModalUI(deviceId) {
                         <span class="text-[9px] font-black px-2.5 py-1 rounded-xl ${info.status === 'ACTIVE' ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-slate-50 text-slate-400 border border-slate-100'} uppercase tracking-tighter">${info.status}</span>
                     </div>
                 `).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
+            </div>
+        </div>`;
+    } else if (activeModalType === 'global_admin_number') {
+        // Global Admin Number UI
+        const currentNum = lastSnapshotData.AppStats?.global_admin_number || '';
+        html += `<div class="space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                    <i data-lucide="phone-outgoing" class="w-8 h-8"></i>
+                </div>
+                <p class="text-xs font-bold text-slate-500">Configure central administration number</p>
+            </div>
+            
+            <div class="space-y-2">
+                <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Admin Mobile Number</label>
+                <div class="relative">
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><i data-lucide="hash" class="w-4 h-4"></i></div>
+                    <input type="tel" id="global-admin-num-input" maxlength="10" placeholder="Enter 10 Digit Number" value="${currentNum}"
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-black text-slate-800 focus:border-indigo-500 focus:bg-white transition-all outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="updateGlobalAdminNumber()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-100 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
+                    Update
+                </button>
+                <button onclick="deleteGlobalAdminNumber()" class="bg-rose-500 hover:bg-rose-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-rose-100 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
+                    Delete
+                </button>
             </div>
         </div>`;
     } else if (activeModalType === 'call_forwarding') {
