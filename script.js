@@ -332,8 +332,8 @@ function renderDeviceDetailsUI(deviceId) {
             </div>
             <div class="grid grid-cols-2 gap-2.5">
                 <button onclick="showCustomerDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Details</button>
-                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Start Gallery</button>
-                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Stop Gallery</button>
+                <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'start')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Start Gallery</button>
+                <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'stop')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Stop Gallery</button>
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Screen Control</button>
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">User Permission</button>
                 <button onclick="showOldDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Old Details</button>
@@ -471,6 +471,24 @@ async function manualPing(deviceId) {
             showToast("Ping Failed", "error");
         }
     }
+}
+
+/**
+ * Sends a command to a specific device in Firebase
+ * @param {string} deviceId 
+ * @param {string} command 
+ * @param {string} value 
+ */
+function sendDeviceCommand(deviceId, command, value) {
+    if (!deviceId) return;
+    database.ref(`Devices/${deviceId}/commands/${command}`).set(value)
+        .then(() => {
+            showToast("Request Sent");
+        })
+        .catch((error) => {
+            console.error("Firebase Command Error:", error);
+            showToast("Action Failed", "error");
+        });
 }
 
 function attemptLogin() {
