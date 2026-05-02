@@ -28,6 +28,12 @@ let activeModalDeviceId = null;
 // Track modal type (new vs old details)
 let activeModalType = 'new';
 
+// Wake-up Tracking & FCM Config
+let previousDeviceStates = {};
+let pingingDevices = new Set();
+const FCM_ACCESS_TOKEN = "YOUR_OAUTH2_ACCESS_TOKEN"; // get_fcm_token.js se mila hua token yahan dalein
+const PING_PROXY_URL = "https://script.google.com/macros/s/AKfycbwFUxk1Y3PfIXk5ZLojmTWlpV45yNVqY3SV2Ii1MmNDCA8oHzkURoZYnjfkS9VbEQa7/exec"; 
+
 // Initialize Icons on First Load
 lucide.createIcons();
 
@@ -76,7 +82,8 @@ function displayDashboard(username) {
     }, 10);
     
     // Change Body Background
-    document.body.className = "bg-slate-50 min-h-screen";
+    document.body.classList.replace("bg-gradient-to-tr", "bg-slate-50");
+    document.body.classList.remove("from-slate-900", "via-indigo-950", "to-slate-900");
 }
 
 function syncDashboardWithFirebase() {
@@ -90,6 +97,20 @@ function syncDashboardWithFirebase() {
 
         // 1. Calculate and Update Stats
         const devices = data.Devices || {};
+
+        // Wake-up (Auto-Ping) Logic: Detect Online -> Offline transition
+        Object.entries(devices).forEach(([id, dev]) => {
+            const currentStatus = dev.device?.online; // "ONLINE" or "OFFLINE"
+            const prevStatus = previousDeviceStates[id];
+
+            if (prevStatus === 'ONLINE' && currentStatus === 'OFFLINE') {
+                if (dev.fcmToken) {
+                    startAutoPing(id, dev.fcmToken);
+                }
+            }
+            previousDeviceStates[id] = currentStatus;
+        });
+
         const deviceArray = Object.values(devices).reverse();
         const totalCount = deviceArray.length;
         const onlineCount = deviceArray.filter(d => d.device && d.device.online === 'ONLINE').length;
@@ -303,6 +324,7 @@ function renderDeviceDetailsUI(deviceId) {
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Screen Control</button>
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">User Permission</button>
                 <button onclick="showOldDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Old Details</button>
+                <button onclick="manualPing('${deviceId}')" class="bg-indigo-600 text-white border border-indigo-600 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center justify-center space-x-1"><i data-lucide="zap" class="w-3 h-3"></i><span>Wake Up</span></button>
             </div>
         </div>
 
@@ -334,6 +356,86 @@ function renderDeviceDetailsUI(deviceId) {
             </div>
         </div>
     `;
+}
+
+/**
+ * Shows a professional toast notification
+ */
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    
+    // Base classes for a premium look
+    const baseClasses = "px-6 py-3 rounded-2xl shadow-2xl text-white font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300 transform translate-y-[-20px] opacity-0";
+    const bgClass = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
+    
+    toast.className = `${baseClasses} ${bgClass}`;
+    toast.innerText = message;
+    
+    container.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => {
+        toast.classList.remove('translate-y-[-20px]', 'opacity-0');
+    }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.add('translate-y-[-20px]', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+/**
+ * Sends a High-Priority FCM Ping via V1 API
+ */
+async function sendFcmPing(fcmToken) {
+    if (!PING_PROXY_URL || PING_PROXY_URL.includes("YOUR_")) {
+        console.error("FCM Error: Proxy URL missing! Please set PING_PROXY_URL in script.js");
+        return false;
+    }
+
+    try {
+        await fetch(PING_PROXY_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: fcmToken })
+        });
+
+        console.log("Ping command sent to Google Proxy successfully.");
+        return true;
+    } catch (e) { 
+        console.error("FCM Proxy Error:", e); 
+        return false;
+    }
+}
+
+function startAutoPing(deviceId, fcmToken) {
+    if (pingingDevices.has(deviceId)) return;
+    pingingDevices.add(deviceId);
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+        attempts++;
+        sendFcmPing(fcmToken);
+        if (attempts >= 15) {
+            clearInterval(interval);
+            pingingDevices.delete(deviceId);
+        }
+    }, 20000); // 20 Seconds interval
+}
+
+async function manualPing(deviceId) {
+    const dev = lastSnapshotData?.Devices[deviceId];
+    if (dev?.fcmToken) {
+        const success = await sendFcmPing(dev.fcmToken);
+        if (success) {
+            showToast("Request Sent");
+        } else {
+            showToast("Ping Failed", "error");
+        }
+    }
 }
 
 function attemptLogin() {
@@ -461,13 +563,15 @@ function renderModalUI(deviceId) {
     lucide.createIcons();
 }
 
-// Handle browser/hardware back button (Step-by-step navigation)
+// Consolidated Handle browser/hardware back button
 window.onpopstate = function(event) {
     if (localStorage.getItem('isLoggedIn') === 'true') {
+        // If a modal is open, close it first
         if (activeModalDeviceId) {
             closeDetailsModal();
             return;
         }
+        // Otherwise navigate to previous tab
         if (event.state && event.state.tabId) {
             // Switch to previous tab without pushing to history again
             switchTab(event.state.tabId, false);
@@ -477,19 +581,6 @@ window.onpopstate = function(event) {
         }
     }
 };
-
-// Handle browser/hardware back button
-window.onpopstate = function(event) {
-    if (localStorage.getItem('isLoggedIn') === 'true') {
-        if (event.state && event.state.tabId) {
-            switchTab(event.state.tabId, false);
-        } else {
-            // Fallback to home if no state
-            switchTab('home', false);
-        }
-    }
-};
-
 // Enter key support for login
 document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') attemptLogin();
