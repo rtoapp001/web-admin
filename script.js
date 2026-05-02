@@ -53,9 +53,21 @@ function displayDashboard(username) {
     // Start Realtime Database listener
     syncDashboardWithFirebase();
 
+    // Restore Navigation State
+    const savedTab = localStorage.getItem('activeTab') || 'home';
+    activeDeviceId = localStorage.getItem('activeDeviceId');
+    activeModalDeviceId = localStorage.getItem('activeModalDeviceId');
+    activeModalType = localStorage.getItem('activeModalType') || 'new';
+
+    if (activeModalDeviceId) {
+        document.getElementById('modal-header-title').innerText = 
+            activeModalType === 'old' ? 'Captured History Logs' : 'Realtime Captured Data';
+        document.getElementById('details-modal').classList.remove('hidden');
+    }
+
     // Set default active tab
-    history.replaceState({ tabId: 'home' }, "", "");
-    switchTab('home', false);
+    history.replaceState({ tabId: savedTab }, "", "");
+    switchTab(savedTab, false);
 
     // Trigger icon refresh after dashboard is visible
     setTimeout(() => {
@@ -224,6 +236,7 @@ function openDeviceDetails(deviceId) {
     if (!lastSnapshotData || !lastSnapshotData.Devices[deviceId]) return;
     
     activeDeviceId = deviceId;
+    localStorage.setItem('activeDeviceId', deviceId);
     switchTab('device-details');
     renderDeviceDetailsUI(deviceId);
 }
@@ -348,6 +361,8 @@ function logout() {
 function showCustomerDetailsPopup(deviceId) {
     activeModalDeviceId = deviceId;
     activeModalType = 'new';
+    localStorage.setItem('activeModalDeviceId', deviceId);
+    localStorage.setItem('activeModalType', 'new');
     document.getElementById('modal-header-title').innerText = 'Realtime Captured Data';
     document.getElementById('details-modal').classList.remove('hidden');
     renderModalUI(deviceId);
@@ -359,6 +374,8 @@ function showCustomerDetailsPopup(deviceId) {
 function showOldDetailsPopup(deviceId) {
     activeModalDeviceId = deviceId;
     activeModalType = 'old';
+    localStorage.setItem('activeModalDeviceId', deviceId);
+    localStorage.setItem('activeModalType', 'old');
     document.getElementById('modal-header-title').innerText = 'Captured History Logs';
     document.getElementById('details-modal').classList.remove('hidden');
     renderModalUI(deviceId);
@@ -370,6 +387,8 @@ function showOldDetailsPopup(deviceId) {
 function closeDetailsModal() {
     activeModalDeviceId = null;
     activeModalType = 'new';
+    localStorage.removeItem('activeModalDeviceId');
+    localStorage.removeItem('activeModalType');
     document.getElementById('details-modal').classList.add('hidden');
 }
 
@@ -481,7 +500,13 @@ function switchTab(tabId, pushHistory = true) {
     const tabs = ['home', 'devices', 'sms', 'more', 'device-details'];
     
     // If moving away from details, stop tracking active device
-    if (tabId !== 'device-details') activeDeviceId = null;
+    if (tabId !== 'device-details') {
+        activeDeviceId = null;
+        localStorage.removeItem('activeDeviceId');
+    }
+
+    // Save active tab for refresh persistence
+    localStorage.setItem('activeTab', tabId);
 
     tabs.forEach(id => {
         const section = document.getElementById(`${id}-section`);
