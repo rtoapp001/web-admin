@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="overscroll-none">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 min-h-screen overscroll-y-none">
+<body class="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 min-h-screen overscroll-none">
 
     <!-- Login Section -->
     <div id="login-section" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -239,6 +239,16 @@
                                     </div>
                                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i>
                                 </button>
+
+                                <button onclick="showTelegramPopup()" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 transition-all shadow-sm group">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                            <i data-lucide="send" class="w-5 h-5"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700 uppercase tracking-tight">Telegram</span>
+                                    </div>
+                                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -284,7 +294,7 @@
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <div id="modal-body" class="p-5 overflow-y-auto overscroll-y-none space-y-4 min-h-[300px] max-h-[75vh] bg-slate-50/50">
+            <div id="modal-body" class="p-5 overflow-y-auto overscroll-contain space-y-4 min-h-[300px] max-h-[75vh] bg-slate-50/50">
                 <!-- Live Data Injected Here -->
             </div>
         </div>

