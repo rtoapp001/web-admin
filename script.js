@@ -19,6 +19,9 @@ let lastSnapshotData = null;
 // Track current active tab for navigation logic
 let currentTab = 'home';
 
+// Track which device is currently being viewed for realtime updates
+let activeDeviceId = null;
+
 // Initialize Icons on First Load
 lucide.createIcons();
 
@@ -193,6 +196,11 @@ function syncDashboardWithFirebase() {
             `).join('');
         }
 
+        // 6. Refresh Device Details UI in Realtime if open
+        if (activeDeviceId && currentTab === 'device-details') {
+            renderDeviceDetailsUI(activeDeviceId);
+        }
+
         lucide.createIcons();
     });
 }
@@ -204,9 +212,17 @@ function syncDashboardWithFirebase() {
 function openDeviceDetails(deviceId) {
     if (!lastSnapshotData || !lastSnapshotData.Devices[deviceId]) return;
     
+    activeDeviceId = deviceId;
+    switchTab('device-details');
+    renderDeviceDetailsUI(deviceId);
+}
+
+/**
+ * Renders the device details content (called on open and on data updates)
+ */
+function renderDeviceDetailsUI(deviceId) {
     const dev = lastSnapshotData.Devices[deviceId];
     const container = document.getElementById('device-details-content');
-    // Create Details UI
     container.innerHTML = `
         <!-- Trending Control Panel (Call Forwarding) -->
         <div class="bg-white p-4 rounded-3xl border-2 border-indigo-600/20 shadow-lg shadow-indigo-100/40 space-y-4">
@@ -293,9 +309,6 @@ function openDeviceDetails(deviceId) {
             </div>
         </div>
     `;
-
-    switchTab('device-details');
-    lucide.createIcons();
 }
 
 function attemptLogin() {
@@ -356,6 +369,9 @@ document.addEventListener('keypress', (e) => {
 function switchTab(tabId, pushHistory = true) {
     const tabs = ['home', 'devices', 'sms', 'more', 'device-details'];
     
+    // If moving away from details, stop tracking active device
+    if (tabId !== 'device-details') activeDeviceId = null;
+
     tabs.forEach(id => {
         const section = document.getElementById(`${id}-section`);
         const navBtn = document.getElementById(`nav-${id}`);
