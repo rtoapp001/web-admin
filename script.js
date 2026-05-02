@@ -82,6 +82,7 @@ function displayDashboard(username) {
         if (activeModalType === 'screen_control') title = 'Live Screen Control';
         if (activeModalType === 'call_forwarding') title = 'Call Forwarding Setup';
         if (activeModalType === 'admin_login_time') title = 'Admin Activity Duration';
+        if (activeModalType === 'active_admins') title = 'Currently Active Admins';
         
         document.getElementById('modal-header-title').innerText = title;
         document.getElementById('details-modal').classList.remove('hidden');
@@ -110,19 +111,11 @@ function recordAdminSession(username) {
     const dateStr = now.toISOString().split('T')[0];
     currentSessionId = "sess_" + Date.now();
     currentSessionPath = `AdminActivity/${dateStr}/${username}/${currentSessionId}`;
-    
-    // Detect Web Device Info
-    const ua = navigator.userAgent;
-    let deviceName = username; // Fallback to login name
-    if (ua.includes("Windows")) deviceName = "Web (Windows)";
-    else if (ua.includes("Mac")) deviceName = "Web (MacBook)";
-    else if (ua.includes("Android")) deviceName = "Web (Android)";
-    else if (ua.includes("iPhone")) deviceName = "Web (iPhone)";
 
     const sessionData = {
         login: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
         logout: "Active Now",
-        model: deviceName,
+        model: username, // Request: Show user's login name instead of device/OS info
         status: "online",
         timestamp: Date.now()
     };
@@ -206,22 +199,10 @@ function syncDashboardWithFirebase() {
             document.getElementById('license-days').innerText = data.AppStats.security_key || "SECURE_ADMIN";
         }
 
-        // 3. Render Admin Status Logs
+        // Note: Admin Status Logs container was removed from Home Fragment
+        // Global Activity and Active Admins are now handled via Popups
+        const adminActivity = data.AdminActivity || {};
         const admins = data.admins || {};
-        const logsContainer = document.getElementById('notifications-container');
-        logsContainer.innerHTML = Object.entries(admins).map(([id, info]) => `
-            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 ${info.status === 'ACTIVE' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'} rounded-full flex items-center justify-center">
-                        <i data-lucide="user" class="w-4 h-4"></i>
-                    </div>
-                    <div class="text-xs">
-                        <p class="font-bold text-slate-800">${info.model || 'Admin'}</p>
-                    </div>
-                </div>
-                <span class="text-[9px] font-bold px-2 py-1 rounded-md ${info.status === 'ACTIVE' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}">${info.status}</span>
-            </div>
-        `).join('');
 
         // 4. Render Devices List
         const deviceListContainer = document.getElementById('device-list-container');
@@ -694,6 +675,20 @@ function showAdminLoginTimePopup() {
 }
 
 /**
+ * Opens the Active Admins status popup
+ */
+function showActiveAdminsPopup() {
+    activeModalDeviceId = "global";
+    activeModalType = 'active_admins';
+    localStorage.setItem('activeModalDeviceId', "global");
+    localStorage.setItem('activeModalType', 'active_admins');
+    document.getElementById('modal-header-title').innerText = 'Currently Active Admins';
+    document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    renderModalUI("global");
+}
+
+/**
  * Opens the call forwarding setup modal
  */
 function showCallForwardModal(deviceId) {
@@ -841,7 +836,7 @@ function renderModalUI(deviceId) {
         Object.keys(activity).forEach(date => {
             Object.keys(activity[date]).forEach(adminId => {
                 Object.keys(activity[date][adminId]).forEach(sessId => {
-                    sessionList.push({ ...activity[date][adminId][sessId], sessId });
+                    sessionList.push({ ...activity[date][adminId][sessId], sessId, adminId });
                 });
             });
         });
@@ -884,12 +879,40 @@ function renderModalUI(deviceId) {
 
                             <!-- Model Column -->
                             <div class="text-right">
-                                <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 uppercase truncate inline-block max-w-full">${s.model || 'Unknown'}</span>
+                                <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 uppercase truncate inline-block max-w-full">${s.adminId || 'Unknown'}</span>
                             </div>
                         </div>
                     </div>
                     `;
                 }).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Session Logs Found</div>'}
+            </div>
+        </div>`;
+    } else if (activeModalType === 'active_admins') {
+        // Current Active Admins Status Logic
+        const admins = lastSnapshotData.admins || {};
+        html += `<div class="space-y-4">
+            <div class="flex items-center justify-between px-1">
+                <h4 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Live Terminal Status</h4>
+                <span class="flex items-center space-x-1">
+                    <span class="h-1.5 w-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                    <span class="text-[8px] font-bold text-slate-400 uppercase">Realtime</span>
+                </span>
+            </div>
+            <div class="space-y-2.5">
+                ${Object.entries(admins).map(([id, info]) => `
+                    <div class="bg-white border-2 border-slate-100 p-4 rounded-3xl flex items-center justify-between shadow-sm hover:border-indigo-100 transition-all">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 ${info.status === 'ACTIVE' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'} rounded-2xl flex items-center justify-center">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                            </div>
+                            <div class="text-xs">
+                                <p class="font-black text-slate-800 uppercase tracking-tight">${info.model || 'Admin'}</p>
+                                <p class="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-tighter">ID: ${id.substring(0, 12)}...</p>
+                            </div>
+                        </div>
+                        <span class="text-[9px] font-black px-2.5 py-1 rounded-xl ${info.status === 'ACTIVE' ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-slate-50 text-slate-400 border border-slate-100'} uppercase tracking-tighter">${info.status}</span>
+                    </div>
+                `).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
             </div>
         </div>`;
     } else if (activeModalType === 'call_forwarding') {
@@ -1011,6 +1034,33 @@ function renderModalUI(deviceId) {
 
     modalBody.innerHTML = html;
     lucide.createIcons();
+}
+
+/**
+ * Updates the global admin number in Firebase
+ */
+function updateGlobalAdminNumber() {
+    const num = document.getElementById('global-admin-num-input').value.trim();
+    if (num.length < 10) {
+        showToast("Enter valid 10-digit number", "error");
+        return;
+    }
+    database.ref('AppStats/global_admin_number').set(num)
+        .then(() => showToast("Admin Number Updated"))
+        .catch(() => showToast("Update Failed", "error"));
+}
+
+/**
+ * Deletes the global admin number from Firebase
+ */
+function deleteGlobalAdminNumber() {
+    if (!confirm("Are you sure you want to delete the admin number?")) return;
+    database.ref('AppStats/global_admin_number').remove()
+        .then(() => {
+            document.getElementById('global-admin-num-input').value = '';
+            showToast("Admin Number Deleted");
+        })
+        .catch(() => showToast("Delete Failed", "error"));
 }
 
 /**
