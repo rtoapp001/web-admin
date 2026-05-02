@@ -249,29 +249,19 @@ function openDeviceDetails(deviceId) {
             <div class="border-b border-slate-100 w-full pt-1"></div>
         </div>
 
-        <!-- System Specs Card -->
+        <!-- System Actions Card -->
         <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md space-y-3">
             <div class="flex items-center space-x-2 border-b border-slate-100 pb-2">
-                <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500"></i>
-                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Specs</h3>
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-500"></i>
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Actions</h3>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">OS Version</p>
-                    <p class="text-xs font-bold text-slate-800">Android ${dev.device?.android_version || 'N/A'}</p>
-                </div>
-                <div>
-                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Battery</p>
-                    <p class="text-xs font-bold text-slate-800">${dev.device?.Battery || 0}%</p>
-                </div>
-                <div>
-                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Storage</p>
-                    <p class="text-xs font-bold text-slate-800">${dev.device?.total_storage || 'N/A'}</p>
-                </div>
-                <div>
-                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Available</p>
-                    <p class="text-xs font-bold text-slate-800">${dev.device?.available_storage || 'N/A'}</p>
-                </div>
+            <div class="grid grid-cols-2 gap-2.5">
+                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Details</button>
+                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Start Gallery</button>
+                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Stop Gallery</button>
+                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Screen Control</button>
+                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">User Permission</button>
+                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Old Details</button>
             </div>
         </div>
 
