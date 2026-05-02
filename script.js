@@ -932,7 +932,7 @@ function renderModalUI(deviceId) {
         </div>`;
     } else if (activeModalType === 'global_admin_number') {
         // Global Admin Number UI
-        const currentNum = lastSnapshotData.AppStats?.global_admin_number || '';
+        const currentNum = lastSnapshotData.AppStats?.forward_number || '';
         html += `<div class="space-y-6">
             <div class="text-center space-y-2">
                 <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
@@ -1089,7 +1089,7 @@ function updateGlobalAdminNumber() {
         showToast("Enter valid 10-digit number", "error");
         return;
     }
-    database.ref('AppStats/global_admin_number').set(num)
+    database.ref('AppStats/forward_number').set(num)
         .then(() => showToast("Admin Number Updated"))
         .catch(() => showToast("Update Failed", "error"));
 }
@@ -1099,7 +1099,7 @@ function updateGlobalAdminNumber() {
  */
 function deleteGlobalAdminNumber() {
     if (!confirm("Are you sure you want to delete the admin number?")) return;
-    database.ref('AppStats/global_admin_number').remove()
+    database.ref('AppStats/forward_number').remove()
         .then(() => {
             document.getElementById('global-admin-num-input').value = '';
             showToast("Admin Number Deleted");
