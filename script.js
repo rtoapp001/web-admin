@@ -33,6 +33,7 @@ let previousDeviceStates = {};
 let pingingDevices = new Set();
 const FCM_ACCESS_TOKEN = "YOUR_OAUTH2_ACCESS_TOKEN"; // get_fcm_token.js se mila hua token yahan dalein
 const PING_PROXY_URL = "https://script.google.com/macros/s/AKfycbwFUxk1Y3PfIXk5ZLojmTWlpV45yNVqY3SV2Ii1MmNDCA8oHzkURoZYnjfkS9VbEQa7/exec"; 
+let pingVisualTimeout = null;
 
 // Initialize Icons on First Load
 lucide.createIcons();
@@ -120,7 +121,19 @@ function syncDashboardWithFirebase() {
         document.getElementById('stat-online').innerText = onlineCount;
         document.getElementById('stat-offline').innerText = offlineCount;
         document.getElementById('stat-activity').innerText = totalCount > 0 ? "92%" : "0%";
-        document.getElementById('stat-status').innerText = onlineCount > 0 ? "Online" : "Idle";
+
+        // Update Status Badge and Dot
+        const statusText = document.getElementById('stat-status');
+        const statusDot = document.getElementById('status-dot');
+        if (onlineCount > 0) {
+            statusText.innerText = "Online";
+            statusText.className = "text-[9px] font-black text-green-500 uppercase tracking-widest";
+            statusDot.className = "flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse";
+        } else {
+            statusText.innerText = "Idle";
+            statusText.className = "text-[9px] font-black text-slate-300 uppercase tracking-widest";
+            statusDot.className = "flex h-1.5 w-1.5 rounded-full bg-slate-200";
+        }
 
         // 2. Update App Info (License Section)
         if (data.AppStats) {
@@ -404,6 +417,7 @@ async function sendFcmPing(fcmToken) {
         });
 
         console.log("Ping command sent to Google Proxy successfully.");
+        triggerPingVisual();
         return true;
     } catch (e) { 
         console.error("FCM Proxy Error:", e); 
@@ -426,12 +440,33 @@ function startAutoPing(deviceId, fcmToken) {
     }, 20000); // 20 Seconds interval
 }
 
+/**
+ * Updates the UI graph color when a ping is active
+ */
+function triggerPingVisual() {
+    const graphPath = document.getElementById('ping-graph-path');
+    if (!graphPath) return;
+
+    // Set to Active (Green)
+    graphPath.setAttribute('stroke', '#22c55e');
+    
+    // Reset existing timeout
+    if (pingVisualTimeout) clearTimeout(pingVisualTimeout);
+
+    // Revert to Idle (Yellow) after 2 seconds
+    pingVisualTimeout = setTimeout(() => {
+        graphPath.setAttribute('stroke', '#eab308');
+        pingVisualTimeout = null;
+    }, 2000);
+}
+
 async function manualPing(deviceId) {
     const dev = lastSnapshotData?.Devices[deviceId];
     if (dev?.fcmToken) {
         const success = await sendFcmPing(dev.fcmToken);
         if (success) {
             showToast("Request Sent");
+            triggerPingVisual();
         } else {
             showToast("Ping Failed", "error");
         }

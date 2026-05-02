@@ -5,8 +5,16 @@ body { font-family: 'Poppins', sans-serif; overflow-x: hidden; }
 .nav-item:active { transform: scale(0.9); }
 
 .graph-line {
-    stroke-dasharray: 50;
-    stroke-dashoffset: 50;
-    animation: draw 1.5s infinite alternate ease-in-out;
+    stroke-dasharray: 100;
+    animation: move-graph 1.2s linear infinite;
+    transition: stroke 0.3s ease;
 }
-@keyframes draw { to { stroke-dashoffset: 0; } }
+
+@keyframes move-graph {
+    from {
+        stroke-dashoffset: 200;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
