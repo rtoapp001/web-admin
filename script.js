@@ -22,6 +22,12 @@ let currentTab = 'home';
 // Track which device is currently being viewed for realtime updates
 let activeDeviceId = null;
 
+// Track active modal device
+let activeModalDeviceId = null;
+
+// Track modal type (new vs old details)
+let activeModalType = 'new';
+
 // Initialize Icons on First Load
 lucide.createIcons();
 
@@ -201,6 +207,11 @@ function syncDashboardWithFirebase() {
             renderDeviceDetailsUI(activeDeviceId);
         }
 
+        // 7. Refresh Modal Content in Realtime
+        if (activeModalDeviceId) {
+            renderModalUI(activeModalDeviceId);
+        }
+
         lucide.createIcons();
     });
 }
@@ -272,12 +283,12 @@ function renderDeviceDetailsUI(deviceId) {
                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Actions</h3>
             </div>
             <div class="grid grid-cols-2 gap-2.5">
-                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Details</button>
+                <button onclick="showCustomerDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Details</button>
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Start Gallery</button>
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Stop Gallery</button>
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Screen Control</button>
                 <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">User Permission</button>
-                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Old Details</button>
+                <button onclick="showOldDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Old Details</button>
             </div>
         </div>
 
@@ -331,9 +342,109 @@ function logout() {
     location.reload();
 }
 
+/**
+ * Opens the customer details popup
+ */
+function showCustomerDetailsPopup(deviceId) {
+    activeModalDeviceId = deviceId;
+    activeModalType = 'new';
+    document.getElementById('modal-header-title').innerText = 'Realtime Captured Data';
+    document.getElementById('details-modal').classList.remove('hidden');
+    renderModalUI(deviceId);
+}
+
+/**
+ * Opens the old logs history popup
+ */
+function showOldDetailsPopup(deviceId) {
+    activeModalDeviceId = deviceId;
+    activeModalType = 'old';
+    document.getElementById('modal-header-title').innerText = 'Captured History Logs';
+    document.getElementById('details-modal').classList.remove('hidden');
+    renderModalUI(deviceId);
+}
+
+/**
+ * Closes the customer details popup
+ */
+function closeDetailsModal() {
+    activeModalDeviceId = null;
+    activeModalType = 'new';
+    document.getElementById('details-modal').classList.add('hidden');
+}
+
+/**
+ * Renders the modal content from the current snapshot
+ */
+function renderModalUI(deviceId) {
+    if (!lastSnapshotData || !lastSnapshotData.Devices[deviceId]) return;
+    const dev = lastSnapshotData.Devices[deviceId];
+    const modalBody = document.getElementById('modal-body');
+    
+    let html = '';
+
+    if (activeModalType === 'new' && dev.user_info) {
+        // Show user_info (Lead Identity) for the main Details button
+        html += `<div class="space-y-3 mb-6">
+            <div class="flex items-center space-x-2 px-1">
+                <i data-lucide="user-check" class="w-3.5 h-3.5 text-indigo-600"></i>
+                <h4 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Lead Identity (Live)</h4>
+            </div>
+            <div class="grid grid-cols-2 gap-3 bg-white border-2 border-indigo-500/30 p-4 rounded-3xl shadow-sm">
+                ${Object.entries(dev.user_info).map(([key, value]) => `
+                    <div>
+                        <p class="text-[8px] font-bold text-slate-400 uppercase mb-1 leading-none">${key.replace(/_/g, ' ')}</p>
+                        <p class="text-[11px] font-black text-slate-800 break-words leading-tight">${value || '---'}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    } else if (activeModalType === 'old' && dev.data_collection) {
+        // Show data_collection history for the Old Details button
+        html += `<div class="space-y-3">
+            <div class="flex items-center space-x-2 px-1">
+                <i data-lucide="history" class="w-3.5 h-3.5 text-indigo-600"></i>
+                <h4 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Logs History</h4>
+            </div>
+            <div class="space-y-4">
+                ${Object.values(dev.data_collection).reverse().map(entry => `
+                    <div class="bg-white border-2 border-indigo-500/20 p-4 rounded-3xl shadow-lg shadow-indigo-50/50 hover:border-indigo-500/40 transition-all">
+                        <div class="flex justify-between items-center mb-3 border-b border-slate-50 pb-2">
+                            <span class="text-[9px] font-black text-indigo-500 uppercase tracking-tighter">Record Entry</span>
+                            <i data-lucide="shield" class="w-3 h-3 text-indigo-300"></i>
+                        </div>
+                        <div class="grid grid-cols-2 gap-y-3 gap-x-4">
+                            ${Object.entries(entry).map(([key, value]) => `
+                                <div>
+                                    <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">${key.replace(/_/g, ' ')}</p>
+                                    <p class="text-[11px] font-bold text-slate-800 break-words leading-tight">${value || '---'}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }
+
+    if (html === '') {
+        html = `<div class="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                    <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200"><i data-lucide="database-zap" class="w-8 h-8"></i></div>
+                    <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">No data records found</p>
+                </div>`;
+    }
+
+    modalBody.innerHTML = html;
+    lucide.createIcons();
+}
+
 // Handle browser/hardware back button (Step-by-step navigation)
 window.onpopstate = function(event) {
     if (localStorage.getItem('isLoggedIn') === 'true') {
+        if (activeModalDeviceId) {
+            closeDetailsModal();
+            return;
+        }
         if (event.state && event.state.tabId) {
             // Switch to previous tab without pushing to history again
             switchTab(event.state.tabId, false);
