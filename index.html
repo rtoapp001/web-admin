@@ -45,37 +45,37 @@
     <div id="dashboard-content" class="hidden min-h-screen flex flex-col bg-slate-50">
         
         <!-- Top Navbar -->
-        <nav class="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold shadow-md">
+        <nav class="sticky top-0 z-50 bg-white border-b border-slate-200 px-3 py-2 flex items-center h-16 shadow-sm">
+            <!-- Left Section: Profile Info -->
+            <div class="flex items-center space-x-2 w-1/3 min-w-0">
+                <div class="w-9 h-9 bg-indigo-600 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-xs shadow-md">
                     <span id="user-initial">A</span>
                 </div>
-                <span id="nav-user-name" class="font-bold text-slate-800 text-sm truncate max-w-[100px] sm:max-w-none capitalize">User</span>
+                <span id="nav-user-name" class="font-bold text-slate-800 text-[11px] sm:text-xs truncate capitalize leading-tight">User</span>
             </div>
             
-            <div class="absolute left-1/2 -translate-x-1/2 text-lg font-black tracking-tighter text-indigo-700 hidden sm:block">
-                ARYA GROUP
-            </div>
-            <div class="text-xs font-black tracking-tighter text-indigo-700 sm:hidden">
-                ARYA GROUP
+            <!-- Center Section: Branding -->
+            <div class="flex-grow flex justify-center px-1">
+                <span class="text-xs sm:text-sm font-black tracking-tighter text-indigo-700 uppercase whitespace-nowrap">ARYA GROUP</span>
             </div>
 
-            <div class="flex items-center space-x-2">
-                <div class="flex flex-col items-end mr-2">
+            <!-- Right Section: Status & Logout -->
+            <div class="flex items-center justify-end space-x-2 w-1/3">
+                <div class="hidden sm:flex flex-col items-end mr-1">
                     <span class="text-[8px] font-bold text-green-500 uppercase leading-none">Live Status</span>
-                    <svg width="40" height="20" viewBox="0 0 40 20" class="text-green-500">
+                    <svg width="36" height="18" viewBox="0 0 40 20" class="text-green-500">
                         <path d="M0 15 Q 10 5, 20 15 T 40 10" fill="none" stroke="currentColor" stroke-width="2" class="graph-line" />
                     </svg>
                 </div>
-                <button onclick="location.reload()" class="p-2 text-slate-400 hover:text-red-500">
-                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                <button onclick="location.reload()" class="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
                 </button>
             </div>
         </nav>
 
         <!-- Main View Area -->
-        <main class="flex-grow p-4 mb-20">
-            <div class="max-w-4xl mx-auto space-y-4">
+        <main class="flex-grow p-4 pb-28">
+            <div class="max-w-4xl mx-auto space-y-6">
                 <!-- Home Cards -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
