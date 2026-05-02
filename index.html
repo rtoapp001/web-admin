@@ -83,11 +83,11 @@
                         <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
                             <i data-lucide="zap" class="absolute -right-2 -bottom-2 w-20 h-20 opacity-20"></i>
                             <h3 class="text-sm font-medium opacity-80">Total Activity</h3>
-                            <p class="text-3xl font-bold mt-1">84%</p>
+                            <p id="stat-activity" class="text-3xl font-bold mt-1">--%</p>
                         </div>
                         <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                             <h3 class="text-sm font-medium text-slate-500">System Status</h3>
-                            <p class="text-3xl font-bold text-slate-800 mt-1">Online</p>
+                            <p id="stat-status" class="text-3xl font-bold text-slate-800 mt-1">...</p>
                         </div>
                     </div>
 
@@ -95,15 +95,15 @@
                     <div class="grid grid-cols-3 gap-3">
                         <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-center">
                             <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">All</h3>
-                            <p class="text-xl font-bold text-slate-800">150</p>
+                            <p id="stat-all" class="text-xl font-bold text-slate-800">0</p>
                         </div>
                         <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-center">
                             <h3 class="text-[10px] font-bold text-green-500 uppercase tracking-widest">Online</h3>
-                            <p class="text-xl font-bold text-slate-800">142</p>
+                            <p id="stat-online" class="text-xl font-bold text-slate-800">0</p>
                         </div>
                         <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-center">
                             <h3 class="text-[10px] font-bold text-red-400 uppercase tracking-widest">Offline</h3>
-                            <p class="text-xl font-bold text-slate-800">8</p>
+                            <p id="stat-offline" class="text-xl font-bold text-slate-800">0</p>
                         </div>
                     </div>
 
@@ -114,29 +114,25 @@
                                 <i data-lucide="shield-check" class="w-6 h-6"></i>
                             </div>
                             <div>
-                                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Licence</h3>
-                                <p class="text-sm font-bold text-slate-800 mt-0.5">expire - 20/07/2026</p>
+                                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">System Key</h3>
+                                <p id="license-expire" class="text-sm font-bold text-slate-800 mt-0.5">Approved: --/--/----</p>
                                 <div class="flex items-center mt-1">
-                                    <span class="flex h-2 w-2 rounded-full bg-red-500 mr-2 animate-pulse"></span>
-                                    <span class="text-[10px] font-semibold text-red-500">17 days left</span>
+                                    <span class="flex h-2 w-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                                    <span id="license-days" class="text-[10px] font-semibold text-slate-500">GK_SECURE_V1</span>
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col items-end">
-                            <span class="bg-green-100 text-green-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter border border-green-200 shadow-sm">Active</span>
+                            <span id="license-status" class="bg-green-100 text-green-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter border border-green-200 shadow-sm">Active</span>
                         </div>
                     </div>
 
                     <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                        <h3 class="font-bold text-slate-800 mb-4">Recent Notifications</h3>
-                        <div class="space-y-4">
+                        <h3 class="font-bold text-slate-800 mb-4">Admin Status Logs</h3>
+                        <div id="notifications-container" class="space-y-4">
                             <div class="flex items-center space-x-3 p-3 bg-slate-50 rounded-2xl">
-                                <div class="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                                    <i data-lucide="check" class="w-5 h-5"></i>
-                                </div>
                                 <div class="text-sm">
-                                    <p class="font-semibold">Security Update</p>
-                                    <p class="text-slate-500 text-xs">Everything is looking good.</p>
+                                    <p class="font-semibold text-slate-400">Loading notifications...</p>
                                 </div>
                             </div>
                         </div>
@@ -145,30 +141,26 @@
 
                 <!-- Devices Section -->
                 <div id="devices-section" class="hidden space-y-6">
-                    <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center">
-                        <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i data-lucide="smartphone" class="w-8 h-8"></i>
-                        </div>
-                        <h2 class="text-xl font-bold text-slate-800">Devices</h2>
-                        <p class="text-slate-500 mt-2">Manage all connected devices.</p>
+                    <h2 class="text-xl font-bold text-slate-800 px-2">Connected Terminals</h2>
+                    <div id="device-list-container" class="grid gap-4">
+                        <!-- Dynamic Device Cards -->
+                        <p class="text-center text-slate-400 py-10">Searching for devices...</p>
                     </div>
                 </div>
 
                 <!-- SMS Section -->
                 <div id="sms-section" class="hidden space-y-6">
-                    <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center">
-                        <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i data-lucide="message-circle" class="w-8 h-8"></i>
-                        </div>
-                        <h2 class="text-xl font-bold text-slate-800">SMS Gateway</h2>
-                        <p class="text-slate-500 mt-2">View and send your messages.</p>
+                    <h2 class="text-xl font-bold text-slate-800 px-2">Global Message Logs</h2>
+                    <div id="sms-list-container" class="space-y-3">
+                        <!-- Dynamic SMS Logs -->
+                        <p class="text-center text-slate-400 py-10">Loading messages...</p>
                     </div>
                 </div>
 
                 <!-- More Section -->
                 <div id="more-section" class="hidden space-y-6">
                     <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center">
-                        <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <div class="w-16 h-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
                             <i data-lucide="grid" class="w-8 h-8"></i>
                         </div>
                         <h2 class="text-xl font-bold text-slate-800">Settings & More</h2>
@@ -201,6 +193,10 @@
         </div>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <!-- Main Script -->
     <script src="script.js"></script>
 </body>
 </html>
