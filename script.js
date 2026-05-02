@@ -63,6 +63,7 @@ function displayDashboard(username) {
         document.getElementById('modal-header-title').innerText = 
             activeModalType === 'old' ? 'Captured History Logs' : 'Realtime Captured Data';
         document.getElementById('details-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
     }
 
     // Set default active tab
@@ -365,6 +366,7 @@ function showCustomerDetailsPopup(deviceId) {
     localStorage.setItem('activeModalType', 'new');
     document.getElementById('modal-header-title').innerText = 'Realtime Captured Data';
     document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
     renderModalUI(deviceId);
 }
 
@@ -378,6 +380,7 @@ function showOldDetailsPopup(deviceId) {
     localStorage.setItem('activeModalType', 'old');
     document.getElementById('modal-header-title').innerText = 'Captured History Logs';
     document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
     renderModalUI(deviceId);
 }
 
@@ -390,6 +393,7 @@ function closeDetailsModal() {
     localStorage.removeItem('activeModalDeviceId');
     localStorage.removeItem('activeModalType');
     document.getElementById('details-modal').classList.add('hidden');
+    document.body.style.overflow = '';
 }
 
 /**
