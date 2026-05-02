@@ -127,7 +127,10 @@ function syncDashboardWithFirebase() {
                     });
                 }
             });
-            
+
+        // Sort SMS logs by date: Latest first
+        allSms.sort((a, b) => new Date(b.received_time) - new Date(a.received_time));
+
             smsListContainer.innerHTML = allSms.slice(0, 15).map(sms => `
                 <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     <div class="flex justify-between items-start mb-1">
