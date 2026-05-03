@@ -10,6 +10,8 @@ body { font-family: 'Poppins', sans-serif; overflow-x: hidden; }
 
 .glass { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); }
 
+.gold-glow { text-shadow: 0 0 10px rgba(250, 204, 21, 0.5); }
+
 .glass-card {
   backdrop-filter: blur(34px);
   -webkit-backdrop-filter: blur(34px);
