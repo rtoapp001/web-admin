@@ -1330,14 +1330,12 @@ function switchTab(tabId, pushHistory = true) {
             if (id === tabId) {
                 section.classList.remove('hidden');
                 if (navBtn) {
-                    navBtn.classList.add('text-indigo-600');
-                    navBtn.classList.remove('text-slate-400');
+                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-indigo-600 scale-110";
                 }
             } else {
                 section.classList.add('hidden');
                 if (navBtn) {
-                    navBtn.classList.remove('text-indigo-600');
-                    navBtn.classList.add('text-slate-400');
+                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-slate-400 opacity-60";
                 }
             }
         }
