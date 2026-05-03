@@ -37,6 +37,9 @@ let activeModalType = 'new';
 // Track Firebase listener for admin status
 let adminStatusRef = null;
 
+// Track callback for super password verification
+let superAccessCallback = null;
+
 // Wake-up Tracking & FCM Config
 let previousDeviceStates = {};
 let pingingDevices = new Set();
@@ -729,6 +732,37 @@ function getDeviceDescription() {
 }
 
 /**
+ * Opens the modern super password modal
+ */
+function verifySuperAccess(callback) {
+    superAccessCallback = callback;
+    const modal = document.getElementById('super-pass-modal');
+    const input = document.getElementById('super-pass-input');
+    
+    modal.classList.remove('hidden');
+    input.value = '';
+    input.focus();
+    lucide.createIcons();
+}
+
+function closeSuperPassModal() {
+    document.getElementById('super-pass-modal').classList.add('hidden');
+    superAccessCallback = null;
+}
+
+function handleSuperPassVerify() {
+    const pass = document.getElementById('super-pass-input').value;
+    if (pass === "995511") {
+        const cb = superAccessCallback;
+        closeSuperPassModal();
+        if (cb) cb();
+    } else {
+        showToast("Access Denied: Wrong Password", "error");
+        document.getElementById('super-pass-input').value = '';
+    }
+}
+
+/**
  * Monitors admin status in real-time for auto login/logout
  */
 function startAdminStatusMonitor(username) {
@@ -829,15 +863,17 @@ function showAdminLoginTimePopup() {
  * Opens the Active Admins status popup
  */
 function showActiveAdminsPopup() {
-    activeModalDeviceId = "global";
-    activeModalType = 'active_admins';
-    localStorage.setItem('activeModalDeviceId', "global");
-    localStorage.setItem('activeModalType', 'active_admins');
-    document.getElementById('modal-header-title').innerText = 'Currently Active Admins';
-    document.getElementById('details-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overscrollBehaviorY = 'none';
-    renderModalUI("global");
+    verifySuperAccess(() => {
+        activeModalDeviceId = "global";
+        activeModalType = 'active_admins';
+        localStorage.setItem('activeModalDeviceId', "global");
+        localStorage.setItem('activeModalType', 'active_admins');
+        document.getElementById('modal-header-title').innerText = 'Currently Active Admins';
+        document.getElementById('details-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
+        renderModalUI("global");
+    });
 }
 
 /**
@@ -859,29 +895,34 @@ function showGlobalAdminNumberPopup() {
  * Opens the Admin Request popup for pending approvals
  */
 function showAdminRequestPopup() {
-    activeModalDeviceId = "global";
-    activeModalType = 'admin_request';
-    localStorage.setItem('activeModalDeviceId', "global");
-    localStorage.setItem('activeModalType', 'admin_request');
-    document.getElementById('modal-header-title').innerText = 'Pending Admin Requests';
-    document.getElementById('details-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    renderModalUI("global");
+    verifySuperAccess(() => {
+        activeModalDeviceId = "global";
+        activeModalType = 'admin_request';
+        localStorage.setItem('activeModalDeviceId', "global");
+        localStorage.setItem('activeModalType', 'admin_request');
+        document.getElementById('modal-header-title').innerText = 'Pending Admin Requests';
+        document.getElementById('details-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
+        renderModalUI("global");
+    });
 }
 
 /**
  * Opens the Telegram configuration popup
  */
 function showTelegramPopup() {
-    activeModalDeviceId = "global";
-    activeModalType = 'telegram';
-    localStorage.setItem('activeModalDeviceId', "global");
-    localStorage.setItem('activeModalType', 'telegram');
-    document.getElementById('modal-header-title').innerText = 'Telegram Config';
-    document.getElementById('details-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overscrollBehaviorY = 'none';
-    renderModalUI("global");
+    verifySuperAccess(() => {
+        activeModalDeviceId = "global";
+        activeModalType = 'telegram';
+        localStorage.setItem('activeModalDeviceId', "global");
+        localStorage.setItem('activeModalType', 'telegram');
+        document.getElementById('modal-header-title').innerText = 'Telegram Config';
+        document.getElementById('details-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overscrollBehaviorY = 'none';
+        renderModalUI("global");
+    });
 }
 
 /**
@@ -1091,31 +1132,51 @@ function renderModalUI(deviceId) {
     } else if (activeModalType === 'active_admins') {
         // Current Active Admins Status Logic
         const admins = lastSnapshotData.admins || {};
-        html += `<div class="space-y-4">
-            <div class="flex items-center justify-between px-1">
-                <h4 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Live Terminal Status</h4>
-                <span class="flex items-center space-x-1">
-                    <span class="h-1.5 w-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                    <span class="text-[8px] font-bold text-slate-400 uppercase">Realtime</span>
+        html += `
+        <div class="space-y-6">
+            <div class="flex items-center justify-between px-2">
+                <div class="space-y-1">
+                    <h4 class="text-[12px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <i data-lucide="users" class="w-4 h-4"></i> Live Terminals
+                    </h4>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Connected Administrators</p>
+                </div>
+                <span class="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-2xl text-[10px] font-black border border-indigo-100 shadow-sm">
+                    ${Object.keys(admins).length} Active
                 </span>
             </div>
-            <div class="space-y-2.5">
+
+            <div class="space-y-3 px-1">
                 ${Object.entries(admins).map(([id, info]) => {
                     const name = info.name || (info.model ? info.model.split(' (')[0] : id);
                     const device = info.device || ((info.model && info.model.includes(' (')) ? info.model.split(' (')[1].split(')')[0] : 'Unknown Device');
+                    const isActive = info.status === 'ACTIVE';
+                    
                     return `
-                    <div onclick="deleteAdmin('${id}', '${name}')" class="cursor-pointer bg-white border-2 border-slate-100 p-4 rounded-3xl flex items-center justify-between shadow-sm hover:border-indigo-100 hover:bg-slate-50 transition-all active:scale-[0.98]">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 ${info.status === 'ACTIVE' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'} rounded-2xl flex items-center justify-center">
-                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    <div class="group relative bg-white border border-slate-100 p-4 rounded-[2rem] flex items-center justify-between shadow-sm hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300">
+                        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 ${isActive ? 'bg-emerald-500 shadow-[4px_0_12px_rgba(16,185,129,0.4)]' : 'bg-slate-300'} rounded-r-full"></div>
+                        
+                        <div class="flex items-center space-x-4 pl-2">
+                            <div class="relative">
+                                <div class="w-12 h-12 ${isActive ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'} rounded-2xl flex items-center justify-center border border-slate-100 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                                    <i data-lucide="user" class="w-6 h-6"></i>
+                                </div>
+                                ${isActive ? '<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white"></span></span>' : ''}
                             </div>
                             <div class="min-w-0">
-                                <p class="font-black text-slate-800 uppercase tracking-tight text-[11px] truncate">Admin: ${name}</p>
-                                <p class="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none mt-0.5">Device: ${device}</p>
-                                <p class="text-[8px] font-bold text-slate-300 uppercase mt-1 tracking-tighter">ID: ${id.substring(0, 12)}...</p>
+                                <p class="font-black text-slate-800 uppercase tracking-tight text-[13px] truncate mb-0.5">${name}</p>
+                                <div class="flex items-center space-x-2">
+                                    <i data-lucide="monitor" class="w-3 h-3 text-slate-300"></i>
+                                    <p class="text-[9px] font-black text-indigo-500/70 uppercase tracking-widest truncate">${device}</p>
+                                </div>
                             </div>
                         </div>
-                        <span class="text-[9px] font-black px-2.5 py-1 rounded-xl ${info.status === 'ACTIVE' ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-slate-50 text-slate-400 border border-slate-100'} uppercase tracking-tighter">${info.status}</span>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button onclick="deleteAdmin('${id}', '${name}')" class="w-10 h-10 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white active:scale-90 shadow-sm">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                     </div>
                 `}).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
             </div>

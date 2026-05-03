@@ -335,6 +335,25 @@
         </div>
     </div>
 
+    <!-- Super Password Modal (Modern Trending Style) -->
+    <div id="super-pass-modal" class="fixed inset-0 z-[300] hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass w-full max-w-sm p-8 rounded-[2.5rem] shadow-2xl text-center border border-white/10">
+            <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-indigo-500/20">
+                <i data-lucide="lock" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-xl font-black text-white uppercase tracking-widest mb-2">Security Check</h3>
+            <p class="text-indigo-200/50 text-[10px] font-bold uppercase tracking-widest mb-6">Enter Super Password to Continue</p>
+            
+            <input type="password" id="super-pass-input" placeholder="••••••" 
+                class="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-center text-xl tracking-[0.5em] text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all mb-6">
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="closeSuperPassModal()" class="py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">Cancel</button>
+                <button onclick="handleSuperPassVerify()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-500/20 transition-all active:scale-95 text-[10px] uppercase tracking-widest">Verify</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-[200] space-y-2 pointer-events-none"></div>
 
