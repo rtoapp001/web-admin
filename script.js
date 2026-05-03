@@ -368,10 +368,10 @@ function updateDashboardUI() {
                 }
             });
 
-        // Sort SMS logs by date: Latest first
-        allSms.sort((a, b) => new Date(b.received_time) - new Date(a.received_time));
+            // Sort all global SMS by time: Latest first
+            allSms.sort((a, b) => new Date(b.received_time).getTime() - new Date(a.received_time).getTime());
 
-            smsListContainer.innerHTML = allSms.slice(0, 15).map(sms => `
+            smsListContainer.innerHTML = allSms.slice(0, 100).map(sms => `
                 <div class="relative glass-card bg-indigo-600/30 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
                     ${isSmsDeleteEnabled ? `
                         <button onclick="event.stopPropagation(); deleteSms('${sms.deviceId}', '${sms.id}')" class="absolute top-4 right-4 text-blue-700 hover:text-white transition-colors bg-white/10 p-1.5 rounded-lg">
@@ -533,7 +533,7 @@ function renderDeviceDetailsUI(deviceId) {
             </div>
             <div class="space-y-3">
                 ${dev.Sms ? Object.entries(dev.Sms)
-                    .sort((a, b) => new Date(b.received_time) - new Date(a.received_time))
+                    .sort((a, b) => new Date(b[1].received_time) - new Date(a[1].received_time))
                     .map(([smsId, msg]) => `
                     <div class="relative glass-card bg-white/10 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
                         ${isSmsDeleteEnabled ? `
