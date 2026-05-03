@@ -283,6 +283,9 @@ function updateDashboardUI() {
             if (currentDeviceFilter === 'offline') filteredArray = deviceArray.filter(d => !checkIsOnline(d));
             if (currentDeviceFilter === 'favorite') filteredArray = deviceArray.filter(d => d.device?.star === true || d.device?.star === "true");
 
+            // Sort devices by deviceNumber descending (Higher number on top)
+            filteredArray.sort((a, b) => (parseInt(b.deviceNumber) || 0) - (parseInt(a.deviceNumber) || 0));
+
             if (filteredArray.length === 0) {
                 deviceListContainer.innerHTML = `
                     <div class="py-16 text-center">
