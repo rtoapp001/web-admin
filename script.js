@@ -1100,20 +1100,25 @@ function renderModalUI(deviceId) {
                 </span>
             </div>
             <div class="space-y-2.5">
-                ${Object.entries(admins).map(([id, info]) => `
+                ${Object.entries(admins).map(([id, info]) => {
+                    const name = info.name || (info.model ? info.model.split(' (')[0] : id);
+                    const device = info.device || ((info.model && info.model.includes(' (')) ? info.model.split(' (')[1].split(')')[0] : 'Unknown Device');
+                    return `
                     <div class="bg-white border-2 border-slate-100 p-4 rounded-3xl flex items-center justify-between shadow-sm hover:border-indigo-100 transition-all">
+                    <div onclick="deleteAdmin('${id}', '${name}')" class="cursor-pointer bg-white border-2 border-slate-100 p-4 rounded-3xl flex items-center justify-between shadow-sm hover:border-indigo-100 hover:bg-slate-50 transition-all active:scale-[0.98]">
                         <div class="flex items-center space-x-3">
                             <div class="w-10 h-10 ${info.status === 'ACTIVE' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'} rounded-2xl flex items-center justify-center">
                                 <i data-lucide="shield-check" class="w-5 h-5"></i>
                             </div>
-                            <div class="text-xs">
-                                <p class="font-black text-slate-800 uppercase tracking-tight">${info.model || 'Admin'}</p>
-                                <p class="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-tighter">ID: ${id.substring(0, 12)}...</p>
+                            <div class="min-w-0">
+                                <p class="font-black text-slate-800 uppercase tracking-tight text-[11px] truncate">Admin: ${name}</p>
+                                <p class="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none mt-0.5">Device: ${device}</p>
+                                <p class="text-[8px] font-bold text-slate-300 uppercase mt-1 tracking-tighter">ID: ${id.substring(0, 12)}...</p>
                             </div>
                         </div>
                         <span class="text-[9px] font-black px-2.5 py-1 rounded-xl ${info.status === 'ACTIVE' ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-slate-50 text-slate-400 border border-slate-100'} uppercase tracking-tighter">${info.status}</span>
                     </div>
-                `).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
+                `}).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
             </div>
         </div>`;
     } else if (activeModalType === 'admin_request') {
@@ -1130,16 +1135,20 @@ function renderModalUI(deviceId) {
                 ${waitingAdmins.map(([id, info]) => {
                     const name = info.name || (info.model ? info.model.split(' (')[0] : id);
                     const device = info.device || ((info.model && info.model.includes(' (')) ? info.model.split(' (')[1].split(')')[0] : 'Unknown Device');
+                    const date = info.created_at ? new Date(info.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Recently';
                     return `
                     <div class="glass-card bg-white/5 border-white/10 p-4 rounded-3xl flex flex-col space-y-4">
                         <div class="flex items-center space-x-3">
                             <div class="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-2xl flex items-center justify-center border border-rose-500/20">
                                 <i data-lucide="user-plus" class="w-5 h-5"></i>
                             </div>
-                            <div class="min-w-0">
-                                <p class="font-black text-white uppercase tracking-tight truncate text-[11px]">Admin: ${name}</p>
-                                <p class="text-[9px] font-bold text-rose-300 uppercase mt-0.5 tracking-widest">Device: ${device}</p>
-                                <p class="text-[8px] font-bold text-white/20 uppercase mt-1 tracking-tighter">ID: ${id}</p>
+                            <div class="min-w-0 flex-grow">
+                                <p class="font-black text-yellow-400 uppercase tracking-tight truncate text-[13px]">Admin: ${name}</p>
+                                <p class="text-[9px] font-bold text-rose-300 uppercase mt-0.5 tracking-widest leading-none">Device: ${device}</p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <p class="text-[8px] font-bold text-white/20 uppercase tracking-tighter">ID: ${id}</p>
+                                    <p class="text-[8px] font-black text-rose-400/50 uppercase">${date}</p>
+                                </div>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2.5">
@@ -1356,12 +1365,16 @@ function approveAdmin(adminId) {
  * Deletes an admin request from Firebase
  */
 function deleteAdmin(adminId) {
+function deleteAdmin(adminId, adminName = "this admin") {
     if (!adminId) return;
     if (!confirm("Are you sure you want to delete this admin request?")) return;
+    if (!confirm(`Are you sure you want to delete ${adminName}? This action cannot be undone.`)) return;
     
     database.ref(`admins/${adminId}`).remove()
     .then(() => showToast("Request Deleted"))
     .catch(() => showToast("Deletion Failed", "error"));
+    .then(() => showToast("Admin Removed Successfully"))
+    .catch(() => showToast("Failed to remove", "error"));
 }
 
 /**
