@@ -182,9 +182,9 @@ function syncDashboardWithFirebase() {
             previousDeviceStates[id] = currentStatus;
         });
 
-        const deviceArray = Object.values(devices).reverse();
+        const deviceArray = Object.values(devices);
         const totalCount = deviceArray.length;
-        const onlineCount = deviceArray.filter(d => d.device && d.device.online === 'ONLINE').length;
+        const onlineCount = deviceArray.filter(d => d.device && d.device.online && d.device.online.toUpperCase() === 'ONLINE').length;
         const offlineCount = totalCount - onlineCount;
 
         document.getElementById('stat-all').innerText = totalCount;
@@ -197,12 +197,12 @@ function syncDashboardWithFirebase() {
         const statusDot = document.getElementById('status-dot');
         if (onlineCount > 0) {
             statusText.innerText = "Online";
-            statusText.className = "text-[9px] font-black text-green-500 uppercase tracking-widest";
+            statusText.className = "text-[9px] font-black text-white uppercase tracking-widest";
             statusDot.className = "flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse";
         } else {
             statusText.innerText = "Idle";
-            statusText.className = "text-[9px] font-black text-slate-300 uppercase tracking-widest";
-            statusDot.className = "flex h-1.5 w-1.5 rounded-full bg-slate-200";
+            statusText.className = "text-[9px] font-black text-white/60 uppercase tracking-widest";
+            statusDot.className = "flex h-1.5 w-1.5 rounded-full bg-white/30";
         }
 
         // 2. Update App Info (License Section)
@@ -593,15 +593,15 @@ function triggerPingVisual() {
     const graphPath = document.getElementById('ping-graph-path');
     if (!graphPath) return;
 
-    // Set to Active (Green)
-    graphPath.setAttribute('stroke', '#ffffff');
+    // Set to Active (Green) - Jab ping jaye
+    graphPath.setAttribute('stroke', '#22c55e');
     
     // Reset existing timeout
     if (pingVisualTimeout) clearTimeout(pingVisualTimeout);
 
-    // Revert to Idle (Yellow) after 2 seconds
+    // Revert to Idle (Yellow) after 2 seconds - Jab ping na ho
     pingVisualTimeout = setTimeout(() => {
-        graphPath.setAttribute('stroke', 'rgba(255,255,255,0.6)');
+        graphPath.setAttribute('stroke', '#eab308');
         pingVisualTimeout = null;
     }, 2000);
 }

@@ -103,7 +103,7 @@
                             </div>
                             <div class="relative z-10 h-10 mt-4">
                                 <svg viewBox="0 0 100 30" class="w-full h-full">
-                                    <path id="ping-graph-path" d="M0 15 H10 L12 10 L14 15 H18 L21 28 L25 2 L29 15 H33 L36 10 L40 15 H50 L52 10 L54 15 H58 L61 28 L65 2 L69 15 H73 L76 10 Harmonized L80 15 H100" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="3" stroke-linecap="round" class="graph-line" />
+                                    <path id="ping-graph-path" d="M0 15 H10 L12 10 L14 15 H18 L21 28 L25 2 L29 15 H33 L36 10 L40 15 H50 L52 10 L54 15 H58 L61 28 L65 2 L69 15 H73 L76 10 L80 15 H100" fill="none" stroke="#eab308" stroke-width="3" stroke-linecap="round" class="graph-line" />
                                 </svg>
                             </div>
                         </div>
@@ -111,17 +111,20 @@
 
                     <!-- Status Overview Cards -->
                     <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-center">
-                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">All</h3>
-                            <p id="stat-all" class="text-xl font-bold text-slate-800">0</p>
+                        <div class="bg-blue-600 p-4 rounded-3xl text-white shadow-lg shadow-blue-100 relative overflow-hidden">
+                            <i data-lucide="layers" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
+                            <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">All</h3>
+                            <p id="stat-all" class="relative z-10 text-xl font-bold mt-0.5">0</p>
                         </div>
-                        <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-center">
-                            <h3 class="text-[10px] font-bold text-green-500 uppercase tracking-widest">Online</h3>
-                            <p id="stat-online" class="text-xl font-bold text-slate-800">0</p>
+                        <div class="bg-emerald-500 p-4 rounded-3xl text-white shadow-lg shadow-emerald-100 relative overflow-hidden">
+                            <i data-lucide="wifi" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
+                            <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">Online</h3>
+                            <p id="stat-online" class="relative z-10 text-xl font-bold mt-0.5">0</p>
                         </div>
-                        <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-center">
-                            <h3 class="text-[10px] font-bold text-red-400 uppercase tracking-widest">Offline</h3>
-                            <p id="stat-offline" class="text-xl font-bold text-slate-800">0</p>
+                        <div class="bg-slate-500 p-4 rounded-3xl text-white shadow-lg shadow-slate-100 relative overflow-hidden">
+                            <i data-lucide="wifi-off" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
+                            <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">Offline</h3>
+                            <p id="stat-offline" class="relative z-10 text-xl font-bold mt-0.5">0</p>
                         </div>
                     </div>
 
