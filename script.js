@@ -180,23 +180,31 @@ function syncDashboardWithFirebase() {
 
         // 1. Calculate and Update Stats
         const devices = data.Devices || {};
+        const now = Date.now();
+        const onlineThreshold = 5 * 60 * 1000; // 5 Minutes in milliseconds
 
-        // Wake-up (Auto-Ping) Logic: Detect Online -> Offline transition
+        // Helper to check if a device is online based on 5-min ping rule
+        const checkIsOnline = (dev) => {
+            if (!dev.device?.last_seen) return false;
+            const lastSeen = new Date(dev.device.last_seen).getTime();
+            return (now - lastSeen) < onlineThreshold;
+        };
+
+        // Wake-up (Auto-Ping) Logic: Trigger when WiFi icon turns gray (Firebase offline status)
         Object.entries(devices).forEach(([id, dev]) => {
-            const currentStatus = dev.device?.online; // "ONLINE" or "OFFLINE"
-            const prevStatus = previousDeviceStates[id];
-
-            if (prevStatus === 'ONLINE' && currentStatus === 'OFFLINE') {
-                if (dev.fcmToken) {
-                    startAutoPing(id, dev.fcmToken);
-                }
+            const isOnline = checkIsOnline(dev);
+            const isFirebaseOnline = dev.device?.online === 'ONLINE';
+            
+            if (!isFirebaseOnline && dev.fcmToken) {
+                // This function has its own guard to prevent duplicate intervals
+                startAutoPing(id, dev.fcmToken);
             }
-            previousDeviceStates[id] = currentStatus;
+            previousDeviceStates[id] = isOnline ? 'ONLINE' : 'OFFLINE';
         });
 
         const deviceArray = Object.values(devices);
         const totalCount = deviceArray.length;
-        const onlineCount = deviceArray.filter(d => d.device && d.device.online && d.device.online.toUpperCase() === 'ONLINE').length;
+        const onlineCount = deviceArray.filter(d => checkIsOnline(d)).length;
         const offlineCount = totalCount - onlineCount;
         const favoriteCount = deviceArray.filter(d => d.device?.star === true || d.device?.star === "true").length;
 
@@ -211,7 +219,13 @@ function syncDashboardWithFirebase() {
         
         if (document.getElementById('stat-favorite')) document.getElementById('stat-favorite').innerText = favoriteCount;
         if (document.getElementById('stat-all-sms')) document.getElementById('stat-all-sms').innerText = totalSmsCount;
-        if (document.getElementById('stat-security')) document.getElementById('stat-security').innerText = onlineCount > 0 ? "Active" : "Secure";
+        
+        const uninstallThreshold = 20 * 60 * 60 * 1000; // 20 Hours in ms
+        const uninstallCount = deviceArray.filter(d => {
+            if (!d.device?.last_seen) return true;
+            return (now - new Date(d.device.last_seen).getTime()) > uninstallThreshold;
+        }).length;
+        if (document.getElementById('stat-security')) document.getElementById('stat-security').innerText = uninstallCount;
 
         document.getElementById('stat-activity').innerText = totalCount > 0 ? "92%" : "0%";
 
@@ -256,8 +270,8 @@ function syncDashboardWithFirebase() {
         const deviceListContainer = document.getElementById('device-list-container');
         if (deviceListContainer) {
             let filteredArray = deviceArray;
-            if (currentDeviceFilter === 'online') filteredArray = deviceArray.filter(d => d.device?.online?.toUpperCase() === 'ONLINE');
-            if (currentDeviceFilter === 'offline') filteredArray = deviceArray.filter(d => !d.device?.online || d.device.online.toUpperCase() !== 'ONLINE');
+            if (currentDeviceFilter === 'online') filteredArray = deviceArray.filter(d => checkIsOnline(d));
+            if (currentDeviceFilter === 'offline') filteredArray = deviceArray.filter(d => !checkIsOnline(d));
             if (currentDeviceFilter === 'favorite') filteredArray = deviceArray.filter(d => d.device?.star === true || d.device?.star === "true");
 
             if (filteredArray.length === 0) {
@@ -266,12 +280,16 @@ function syncDashboardWithFirebase() {
                         <p class="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">No ${currentDeviceFilter} Terminals Found</p>
                     </div>`;
             } else {
-                deviceListContainer.innerHTML = filteredArray.map(dev => `
-                <div onclick="openDeviceDetails('${dev.device?.deviceID}')" class="group relative cursor-pointer bg-white ${dev.device?.online === 'ONLINE' ? 'border-emerald-500/30 shadow-emerald-500/20' : 'border-rose-500/30 shadow-rose-500/20'} border-2 rounded-[1.75rem] overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                deviceListContainer.innerHTML = filteredArray.map(dev => {
+                    const isOnline = checkIsOnline(dev);
+                    return `
+                <div onclick="openDeviceDetails('${dev.device?.deviceID}')" class="group relative cursor-pointer bg-white ${isOnline ? 'border-emerald-500/30 shadow-emerald-500/20' : 'border-rose-500/30 shadow-rose-500/20'} border-2 rounded-[1.75rem] overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                    ${(() => { const isFav = dev.device?.star === true || dev.device?.star === "true"; return ''; })()}
+                    
                     <div class="absolute inset-0 bg-gradient-to-br from-white via-transparent to-slate-50/50 pointer-events-none"></div>
                     
                     <!-- Device Header Navbar -->
-                    <div class="relative bg-gradient-to-r ${dev.device?.online === 'ONLINE' ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'} px-4 py-2.5 flex justify-between items-center text-white shadow-md">
+                    <div class="relative bg-gradient-to-r ${isOnline ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'} px-4 py-2.5 flex justify-between items-center text-white shadow-md">
                         <div class="flex items-center space-x-2">
                             <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-md">
                                 <i data-lucide="smartphone" class="w-3.5 h-3.5 text-white"></i>
@@ -298,8 +316,10 @@ function syncDashboardWithFirebase() {
                            <!-- Compact Status Card (Battery, Wifi, Star) -->
                            <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-around">
                                 <span class="text-[10px] font-bold text-slate-700">${dev.device?.Battery || 0}%</span>
-                                <i data-lucide="wifi" class="w-3.5 h-3.5 text-indigo-500"></i>
-                                <i data-lucide="star" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i>
+                                <i data-lucide="wifi" class="w-3.5 h-3.5 ${dev.device?.online === 'ONLINE' ? 'text-emerald-500' : 'text-slate-300'}"></i>
+                                <button onclick="event.stopPropagation(); toggleFavorite('${dev.device?.deviceID}', ${dev.device?.star === true || dev.device?.star === "true"})" class="transition-all active:scale-125">
+                                    <i data-lucide="star" class="w-3.5 h-3.5 ${dev.device?.star === true || dev.device?.star === "true" ? 'text-amber-500 fill-amber-500' : 'text-slate-300'}"></i>
+                                </button>
                            </div>
                         </div>
 
@@ -320,7 +340,7 @@ function syncDashboardWithFirebase() {
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
             }
         }
 
@@ -661,13 +681,23 @@ function startAutoPing(deviceId, fcmToken) {
 
     let attempts = 0;
     const interval = setInterval(() => {
+        // Stop pinging if the device has already come online in Firebase (WiFi turns Green)
+        const dev = lastSnapshotData?.Devices?.[deviceId];
+        const isFirebaseOnline = dev?.device?.online === 'ONLINE';
+
+        if (isFirebaseOnline) {
+            clearInterval(interval);
+            pingingDevices.delete(deviceId);
+            return;
+        }
+
         attempts++;
         sendFcmPing(fcmToken);
-        if (attempts >= 15) {
+        if (attempts >= 20) { // 20 attempts * 15 seconds = 300 seconds (5 Minutes)
             clearInterval(interval);
             pingingDevices.delete(deviceId);
         }
-    }, 20000); // 20 Seconds interval
+    }, 15000); // 15 Seconds interval
 }
 
 /**
@@ -1431,6 +1461,22 @@ function deleteAdmin(adminId, adminName = "this admin") {
     database.ref(`admins/${adminId}`).remove()
         .then(() => showToast("Admin Removed Successfully"))
         .catch(() => showToast("Failed to remove", "error"));
+}
+
+/**
+ * Toggles the favorite (star) status of a device in Firebase
+ */
+function toggleFavorite(deviceId, currentStatus) {
+    if (!deviceId) return;
+    
+    // Toggle status: if true, set false. If false (or undefined), set true.
+    const newStatus = !currentStatus;
+    
+    database.ref(`Devices/${deviceId}/device/star`).set(newStatus)
+        .then(() => {
+            showToast(newStatus ? "Added to Favorites" : "Removed from Favorites");
+        })
+        .catch(() => showToast("Failed to update favorite", "error"));
 }
 
 /**
