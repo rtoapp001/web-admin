@@ -65,7 +65,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function displayDashboard(username) {
     const dashboard = document.getElementById('dashboard-content');
-    // If dashboard is already visible, don't re-initialize
+    
+    // Start Session Tracking (Only if not already started)
+    if (!currentSessionId) {
+        recordAdminSession(username);
+    }
+
     if (dashboard && !dashboard.classList.contains('hidden')) return;
 
     // Transition UI
@@ -75,9 +80,6 @@ function displayDashboard(username) {
     // Set User Data
     document.getElementById('nav-user-name').innerText = username;
     document.getElementById('user-initial').innerText = username.charAt(0).toUpperCase();
-
-    // Start Session Tracking in AdminActivity
-    recordAdminSession(username);
 
     // Start Realtime Database listener
     syncDashboardWithFirebase();
@@ -98,6 +100,7 @@ function displayDashboard(username) {
         if (activeModalType === 'active_admins') title = 'Currently Active Admins';
         if (activeModalType === 'global_admin_number') title = 'Global Admin Number';
         if (activeModalType === 'telegram') title = 'Telegram Config';
+        if (activeModalType === 'admin_request') title = 'Pending Admin Requests';
         
         document.getElementById('modal-header-title').innerText = title;
         document.getElementById('details-modal').classList.remove('hidden');
@@ -123,6 +126,8 @@ function displayDashboard(username) {
  * Records the start of an admin session in Firebase
  */
 function recordAdminSession(username) {
+    if (currentSessionId) return; // Guard: Don't create multiple sessions if one exists
+
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     currentSessionId = "sess_" + Date.now();
@@ -130,8 +135,9 @@ function recordAdminSession(username) {
 
     const sessionData = {
         login: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
-        logout: "Active Now",
-        model: username, // Request: Show user's login name instead of device/OS info
+        logout: "LIVE",
+        name: username,
+        device: getDeviceDescription(),
         status: "online",
         timestamp: Date.now()
     };
@@ -141,7 +147,7 @@ function recordAdminSession(username) {
 
     // If user closes tab unexpectedly, mark as offline
     sessionRef.onDisconnect().update({
-        logout: "Unexpected Close",
+        logout: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
         logout_time: Date.now(),
         status: "offline"
     });
@@ -739,7 +745,8 @@ function startAdminStatusMonitor(username) {
         if (!adminData) {
             // Auto-register new admin as WAITING
             adminStatusRef.set({
-                model: `${username} (${getDeviceDescription()})`,
+                name: username,
+                device: getDeviceDescription(),
                 status: "WAITING",
                 created_at: Date.now()
             });
@@ -845,6 +852,20 @@ function showGlobalAdminNumberPopup() {
     document.getElementById('details-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overscrollBehaviorY = 'none';
+    renderModalUI("global");
+}
+
+/**
+ * Opens the Admin Request popup for pending approvals
+ */
+function showAdminRequestPopup() {
+    activeModalDeviceId = "global";
+    activeModalType = 'admin_request';
+    localStorage.setItem('activeModalDeviceId', "global");
+    localStorage.setItem('activeModalType', 'admin_request');
+    document.getElementById('modal-header-title').innerText = 'Pending Admin Requests';
+    document.getElementById('details-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
     renderModalUI("global");
 }
 
@@ -1059,7 +1080,7 @@ function renderModalUI(deviceId) {
 
                             <!-- Model Column -->
                             <div class="text-right">
-                                <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 uppercase truncate inline-block max-w-full">${s.adminId || 'Unknown'}</span>
+                                <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 uppercase truncate inline-block max-w-full">${s.name ? s.name + ' (' + s.device + ')' : (s.model || s.adminId || 'Unknown')}</span>
                             </div>
                         </div>
                     </div>
@@ -1093,6 +1114,40 @@ function renderModalUI(deviceId) {
                         <span class="text-[9px] font-black px-2.5 py-1 rounded-xl ${info.status === 'ACTIVE' ? 'bg-green-100 text-green-600 border border-green-200' : 'bg-slate-50 text-slate-400 border border-slate-100'} uppercase tracking-tighter">${info.status}</span>
                     </div>
                 `).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
+            </div>
+        </div>`;
+    } else if (activeModalType === 'admin_request') {
+        // Pending Admin Requests Logic
+        const admins = lastSnapshotData.admins || {};
+        const waitingAdmins = Object.entries(admins).filter(([id, info]) => info.status === 'WAITING');
+        
+        html += `<div class="space-y-4">
+            <div class="flex items-center justify-between px-1">
+                <h4 class="text-[10px] font-black text-rose-400 uppercase tracking-widest text-glow">Pending Approvals</h4>
+                <span class="text-[8px] font-bold text-white/40 uppercase tracking-wider">${waitingAdmins.length} Requests Found</span>
+            </div>
+            <div class="space-y-3">
+                ${waitingAdmins.map(([id, info]) => {
+                    const name = info.name || (info.model ? info.model.split(' (')[0] : id);
+                    const device = info.device || ((info.model && info.model.includes(' (')) ? info.model.split(' (')[1].split(')')[0] : 'Unknown Device');
+                    return `
+                    <div class="glass-card bg-white/5 border-white/10 p-4 rounded-3xl flex flex-col space-y-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-2xl flex items-center justify-center border border-rose-500/20">
+                                <i data-lucide="user-plus" class="w-5 h-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-black text-white uppercase tracking-tight truncate text-[11px]">Admin: ${name}</p>
+                                <p class="text-[9px] font-bold text-rose-300 uppercase mt-0.5 tracking-widest">Device: ${device}</p>
+                                <p class="text-[8px] font-bold text-white/20 uppercase mt-1 tracking-tighter">ID: ${id}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <button onclick="approveAdmin('${id}')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-500/20">Approve</button>
+                            <button onclick="deleteAdmin('${id}')" class="bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-rose-500/20">Delete</button>
+                        </div>
+                    </div>
+                `}).join('') || '<div class="py-16 text-center text-white/20 font-bold uppercase text-[10px] tracking-widest">No Pending Requests</div>'}
             </div>
         </div>`;
     } else if (activeModalType === 'global_admin_number') {
@@ -1285,6 +1340,31 @@ function renderModalUI(deviceId) {
 }
 
 /**
+ * Approves an admin by setting status to ACTIVE
+ */
+function approveAdmin(adminId) {
+    if (!adminId) return;
+    database.ref(`admins/${adminId}`).update({ 
+        status: 'ACTIVE',
+        approved_at: Date.now() 
+    })
+    .then(() => showToast("Admin Approved Successfully"))
+    .catch(() => showToast("Approval Failed", "error"));
+}
+
+/**
+ * Deletes an admin request from Firebase
+ */
+function deleteAdmin(adminId) {
+    if (!adminId) return;
+    if (!confirm("Are you sure you want to delete this admin request?")) return;
+    
+    database.ref(`admins/${adminId}`).remove()
+    .then(() => showToast("Request Deleted"))
+    .catch(() => showToast("Deletion Failed", "error"));
+}
+
+/**
  * Updates the global admin number in Firebase
  */
 function updateGlobalAdminNumber() {
@@ -1409,13 +1489,13 @@ function switchTab(tabId, pushHistory = true) {
             if (id === tabId) {
                 section.classList.remove('hidden');
                 if (navBtn) {
-                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-indigo-400 scale-110";
-                    navBtn.innerHTML += '<span class="active-dot w-1 h-1 bg-indigo-400 rounded-full mt-0.5"></span>';
+                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-indigo-400 scale-105";
+                    navBtn.innerHTML += '<span class="active-dot w-1 h-1 bg-indigo-400 rounded-full mt-1"></span>';
                 }
             } else {
                 section.classList.add('hidden');
                 if (navBtn) {
-                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-white/30";
+                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-white/40";
                 }
             }
         }
