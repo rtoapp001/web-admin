@@ -1104,7 +1104,6 @@ function renderModalUI(deviceId) {
                     const name = info.name || (info.model ? info.model.split(' (')[0] : id);
                     const device = info.device || ((info.model && info.model.includes(' (')) ? info.model.split(' (')[1].split(')')[0] : 'Unknown Device');
                     return `
-                    <div class="bg-white border-2 border-slate-100 p-4 rounded-3xl flex items-center justify-between shadow-sm hover:border-indigo-100 transition-all">
                     <div onclick="deleteAdmin('${id}', '${name}')" class="cursor-pointer bg-white border-2 border-slate-100 p-4 rounded-3xl flex items-center justify-between shadow-sm hover:border-indigo-100 hover:bg-slate-50 transition-all active:scale-[0.98]">
                         <div class="flex items-center space-x-3">
                             <div class="w-10 h-10 ${info.status === 'ACTIVE' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'} rounded-2xl flex items-center justify-center">
@@ -1362,19 +1361,15 @@ function approveAdmin(adminId) {
 }
 
 /**
- * Deletes an admin request from Firebase
+ * Deletes an admin from Firebase
  */
-function deleteAdmin(adminId) {
 function deleteAdmin(adminId, adminName = "this admin") {
     if (!adminId) return;
-    if (!confirm("Are you sure you want to delete this admin request?")) return;
     if (!confirm(`Are you sure you want to delete ${adminName}? This action cannot be undone.`)) return;
     
     database.ref(`admins/${adminId}`).remove()
-    .then(() => showToast("Request Deleted"))
-    .catch(() => showToast("Deletion Failed", "error"));
-    .then(() => showToast("Admin Removed Successfully"))
-    .catch(() => showToast("Failed to remove", "error"));
+        .then(() => showToast("Admin Removed Successfully"))
+        .catch(() => showToast("Failed to remove", "error"));
 }
 
 /**
