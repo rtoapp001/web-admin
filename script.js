@@ -594,14 +594,14 @@ function triggerPingVisual() {
     if (!graphPath) return;
 
     // Set to Active (Green)
-    graphPath.setAttribute('stroke', '#22c55e');
+    graphPath.setAttribute('stroke', '#ffffff');
     
     // Reset existing timeout
     if (pingVisualTimeout) clearTimeout(pingVisualTimeout);
 
     // Revert to Idle (Yellow) after 2 seconds
     pingVisualTimeout = setTimeout(() => {
-        graphPath.setAttribute('stroke', '#eab308');
+        graphPath.setAttribute('stroke', 'rgba(255,255,255,0.6)');
         pingVisualTimeout = null;
     }, 2000);
 }
