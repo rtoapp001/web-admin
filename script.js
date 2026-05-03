@@ -69,10 +69,6 @@ function displayDashboard(username) {
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('dashboard-content').classList.remove('hidden');
     
-    // Show animated background
-    const bgAnim = document.getElementById('bg-animation-container');
-    if (bgAnim) bgAnim.classList.remove('hidden');
-    
     // Set User Data
     document.getElementById('nav-user-name').innerText = username;
     document.getElementById('user-initial').innerText = username.charAt(0).toUpperCase();
