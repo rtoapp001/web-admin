@@ -19,6 +19,9 @@ let lastSnapshotData = null;
 // Track current active tab for navigation logic
 let currentTab = 'home';
 
+// Track current device filter
+let currentDeviceFilter = 'all';
+
 // Track which device is currently being viewed for realtime updates
 let activeDeviceId = null;
 
@@ -112,7 +115,7 @@ function displayDashboard(username) {
     }, 10);
     
     // Change Body Background
-    document.body.className = "bg-slate-50 min-h-screen overscroll-none";
+    document.body.className = "custom-bg min-h-screen overscroll-none";
     document.body.classList.remove("from-slate-900", "via-indigo-950", "to-slate-900");
 }
 
@@ -220,8 +223,19 @@ function syncDashboardWithFirebase() {
         // 4. Render Devices List
         const deviceListContainer = document.getElementById('device-list-container');
         if (deviceListContainer) {
-            deviceListContainer.innerHTML = deviceArray.map(dev => `
-                <div onclick="openDeviceDetails('${dev.device?.deviceID}')" class="group relative cursor-pointer ${dev.device?.online === 'ONLINE' ? 'bg-emerald-50/10 border-emerald-500/30 shadow-emerald-500/20' : 'bg-rose-50/10 border-rose-500/30 shadow-rose-500/20'} border-2 rounded-[1.75rem] overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+            let filteredArray = deviceArray;
+            if (currentDeviceFilter === 'online') filteredArray = deviceArray.filter(d => d.device?.online?.toUpperCase() === 'ONLINE');
+            if (currentDeviceFilter === 'offline') filteredArray = deviceArray.filter(d => !d.device?.online || d.device.online.toUpperCase() !== 'ONLINE');
+            if (currentDeviceFilter === 'favorite') filteredArray = deviceArray.filter(d => d.device?.star === true || d.device?.star === "true");
+
+            if (filteredArray.length === 0) {
+                deviceListContainer.innerHTML = `
+                    <div class="py-16 text-center">
+                        <p class="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">No ${currentDeviceFilter} Terminals Found</p>
+                    </div>`;
+            } else {
+                deviceListContainer.innerHTML = filteredArray.map(dev => `
+                <div onclick="openDeviceDetails('${dev.device?.deviceID}')" class="group relative cursor-pointer bg-white ${dev.device?.online === 'ONLINE' ? 'border-emerald-500/30 shadow-emerald-500/20' : 'border-rose-500/30 shadow-rose-500/20'} border-2 rounded-[1.75rem] overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                     <div class="absolute inset-0 bg-gradient-to-br from-white via-transparent to-slate-50/50 pointer-events-none"></div>
                     
                     <!-- Device Header Navbar -->
@@ -240,7 +254,7 @@ function syncDashboardWithFirebase() {
                         <!-- Connection & Status Info -->
                         <div class="grid grid-cols-[1.4fr_1fr] gap-2 mb-3">
                            <!-- Ping Card -->
-                           <div class="bg-slate-50/80 p-2 rounded-2xl border border-slate-100/50">
+                           <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100">
                                 <div class="flex items-center space-x-1.5 mb-0.5">
                                     <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i>
                                     <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ping</span>
@@ -250,7 +264,7 @@ function syncDashboardWithFirebase() {
                                 </p>
                            </div>
                            <!-- Compact Status Card (Battery, Wifi, Star) -->
-                           <div class="bg-slate-50/80 p-2 rounded-2xl border border-slate-100/50 flex items-center justify-around">
+                           <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-around">
                                 <span class="text-[10px] font-bold text-slate-700">${dev.device?.Battery || 0}%</span>
                                 <i data-lucide="wifi" class="w-3.5 h-3.5 text-indigo-500"></i>
                                 <i data-lucide="star" class="w-3.5 h-3.5 text-amber-500 fill-amber-500"></i>
@@ -260,7 +274,7 @@ function syncDashboardWithFirebase() {
                         <!-- SIM Cards Grid -->
                         <div class="grid grid-cols-1 gap-2.5">
                             ${Object.values(dev.sims || {}).map(sim => `
-                                <div class="relative group/sim bg-white border border-slate-100 p-2 rounded-[1.25rem] flex items-center space-x-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50/30">
+                                <div class="relative group/sim bg-white border border-slate-100 p-2 rounded-[1.25rem] flex items-center space-x-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50">
                                     <div class="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover/sim:bg-indigo-600 group-hover/sim:text-white transition-all shadow-sm">
                                         <i data-lucide="sim-card" class="w-3 h-3"></i>
                                     </div>
@@ -275,6 +289,7 @@ function syncDashboardWithFirebase() {
                     </div>
                 </div>
             `).join('');
+            }
         }
 
         // 5. Render Global SMS logs
@@ -319,6 +334,27 @@ function syncDashboardWithFirebase() {
 
         lucide.createIcons();
     });
+}
+
+/**
+ * Updates the device list filter and UI buttons
+ */
+function setDeviceFilter(filter) {
+    currentDeviceFilter = filter;
+    const filters = ['all', 'online', 'offline', 'favorite'];
+    
+    filters.forEach(f => {
+        const btn = document.getElementById(`filter-${f}`);
+        if (btn) {
+            if (f === filter) {
+                btn.className = "flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-indigo-600 text-white transition-all";
+            } else {
+                btn.className = "flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white text-slate-500 border border-slate-200 transition-all";
+            }
+        }
+    });
+    
+    if (lastSnapshotData) syncDashboardWithFirebase();
 }
 
 /**

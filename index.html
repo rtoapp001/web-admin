@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 min-h-screen overscroll-none">
+<body class="custom-bg min-h-screen overscroll-none">
 
     <!-- Login Section -->
     <div id="login-section" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -42,7 +42,7 @@
     </div>
 
     <!-- Dashboard Content -->
-    <div id="dashboard-content" class="hidden min-h-screen flex flex-col bg-slate-50 relative z-10">
+    <div id="dashboard-content" class="hidden min-h-screen flex flex-col bg-transparent relative z-10">
         
         <!-- Top Navbar -->
         <nav class="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 h-16 flex items-center px-4 shadow-lg border-b border-white/10 rounded-b-[1.5rem]">
@@ -87,12 +87,12 @@
                 <div id="home-section" class="space-y-6">
                     <!-- Home Cards -->
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-indigo-600 p-6 rounded-3xl text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
+                        <div class="glass-card p-6 text-white">
                             <i data-lucide="zap" class="absolute -right-2 -bottom-2 w-20 h-20 opacity-20"></i>
                             <h3 class="text-sm font-medium opacity-80">Total Activity</h3>
                             <p id="stat-activity" class="text-3xl font-bold mt-1">--%</p>
                         </div>
-                        <div class="bg-rose-600 p-6 rounded-3xl text-white shadow-lg shadow-rose-200 relative overflow-hidden flex flex-col justify-between border border-rose-500">
+                        <div class="glass-card p-6 text-white flex flex-col justify-between">
                             <i data-lucide="activity" class="absolute -right-2 -top-2 w-20 h-20 opacity-20 text-white"></i>
                             <div class="relative z-10 flex justify-between items-start">
                                 <h3 class="text-sm font-medium opacity-80 tracking-tight">Ping Activity</h3>
@@ -111,17 +111,17 @@
 
                     <!-- Status Overview Cards -->
                     <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-blue-600 p-4 rounded-3xl text-white shadow-lg shadow-blue-100 relative overflow-hidden">
+                        <div class="glass-card p-4 text-white">
                             <i data-lucide="layers" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
                             <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">All</h3>
                             <p id="stat-all" class="relative z-10 text-xl font-bold mt-0.5">0</p>
                         </div>
-                        <div class="bg-emerald-500 p-4 rounded-3xl text-white shadow-lg shadow-emerald-100 relative overflow-hidden">
+                        <div class="glass-card p-4 text-white">
                             <i data-lucide="wifi" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
                             <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">Online</h3>
                             <p id="stat-online" class="relative z-10 text-xl font-bold mt-0.5">0</p>
                         </div>
-                        <div class="bg-slate-500 p-4 rounded-3xl text-white shadow-lg shadow-slate-100 relative overflow-hidden">
+                        <div class="glass-card p-4 text-white">
                             <i data-lucide="wifi-off" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
                             <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">Offline</h3>
                             <p id="stat-offline" class="relative z-10 text-xl font-bold mt-0.5">0</p>
@@ -129,7 +129,7 @@
                     </div>
 
                     <!-- Premium License Card -->
-                    <div class="bg-amber-500 p-6 rounded-[2rem] shadow-lg shadow-amber-200 relative overflow-hidden text-white border border-amber-400 transition-all hover:shadow-amber-300/50 hover:-translate-y-1 group">
+                    <div class="glass-card p-6 text-white transition-all hover:-translate-y-1 group">
                         <i data-lucide="shield-check" class="absolute -right-4 -bottom-4 w-28 h-28 opacity-20 transition-transform group-hover:scale-110 duration-500"></i>
                         <div class="relative z-10 flex items-center justify-between">
                             <div class="flex items-center space-x-4">
@@ -156,7 +156,7 @@
                     </div>
 
                     <!-- Global Admin Number Control -->
-                    <div class="bg-slate-800 p-6 rounded-[2rem] shadow-lg shadow-slate-200 relative overflow-hidden text-white border border-slate-700 transition-all hover:shadow-slate-300/50 hover:-translate-y-1 group">
+                    <div class="glass-card p-6 text-white transition-all hover:-translate-y-1 group">
                         <i data-lucide="settings" class="absolute -right-2 -bottom-2 w-24 h-24 opacity-10 transition-transform group-hover:scale-110 duration-500"></i>
                         <div class="relative z-10 flex items-center justify-between">
                             <div class="flex items-center space-x-4">
@@ -173,7 +173,7 @@
                     </div>
 
                     <!-- APK Request Card -->
-                    <div class="bg-emerald-600 p-6 rounded-[2rem] shadow-lg shadow-emerald-100 relative overflow-hidden text-white border border-emerald-500 transition-all hover:shadow-emerald-200/50 hover:-translate-y-1 group">
+                    <div class="glass-card p-6 text-white transition-all hover:-translate-y-1 group">
                         <i data-lucide="message-circle" class="absolute -right-2 -bottom-2 w-24 h-24 opacity-20 transition-transform group-hover:rotate-12 duration-500"></i>
                         <div class="relative z-10 flex items-center justify-between">
                             <div class="flex items-center space-x-4">
@@ -190,7 +190,7 @@
                     </div>
 
                     <!-- Telegram Request Card -->
-                    <div class="bg-sky-500 p-6 rounded-[2rem] shadow-lg shadow-sky-100 relative overflow-hidden text-white border border-sky-400 transition-all hover:shadow-sky-200/50 hover:-translate-y-1 group">
+                    <div class="glass-card p-6 text-white transition-all hover:-translate-y-1 group">
                         <i data-lucide="send" class="absolute -right-2 -bottom-2 w-24 h-24 opacity-20 transition-transform group-hover:-translate-y-2 group-hover:translate-x-2 duration-500"></i>
                         <div class="relative z-10 flex items-center justify-between">
                             <div class="flex items-center space-x-4">
@@ -209,7 +209,12 @@
 
                 <!-- Devices Section -->
                 <div id="devices-section" class="hidden space-y-6">
-                    <h2 class="text-xl font-bold text-slate-800 px-2">Connected Terminals</h2>
+                    <div class="flex items-center space-x-2 px-2 overflow-x-auto no-scrollbar pb-1">
+                        <button onclick="setDeviceFilter('all')" id="filter-all" class="flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-indigo-600 text-white transition-all">All</button>
+                        <button onclick="setDeviceFilter('online')" id="filter-online" class="flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white text-slate-500 border border-slate-200 transition-all">Online</button>
+                        <button onclick="setDeviceFilter('offline')" id="filter-offline" class="flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white text-slate-500 border border-slate-200 transition-all">Offline</button>
+                        <button onclick="setDeviceFilter('favorite')" id="filter-favorite" class="flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white text-slate-500 border border-slate-200 transition-all">Favorite</button>
+                    </div>
                     <div id="device-list-container" class="grid gap-4">
                         <!-- Dynamic Device Cards -->
                         <p class="text-center text-slate-400 py-10">Searching for devices...</p>
