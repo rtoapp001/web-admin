@@ -189,10 +189,21 @@ function syncDashboardWithFirebase() {
         const totalCount = deviceArray.length;
         const onlineCount = deviceArray.filter(d => d.device && d.device.online && d.device.online.toUpperCase() === 'ONLINE').length;
         const offlineCount = totalCount - onlineCount;
+        const favoriteCount = deviceArray.filter(d => d.device?.star === true || d.device?.star === "true").length;
+
+        let totalSmsCount = 0;
+        deviceArray.forEach(dev => {
+            if (dev.Sms) totalSmsCount += Object.keys(dev.Sms).length;
+        });
 
         document.getElementById('stat-all').innerText = totalCount;
         document.getElementById('stat-online').innerText = onlineCount;
         document.getElementById('stat-offline').innerText = offlineCount;
+        
+        if (document.getElementById('stat-favorite')) document.getElementById('stat-favorite').innerText = favoriteCount;
+        if (document.getElementById('stat-all-sms')) document.getElementById('stat-all-sms').innerText = totalSmsCount;
+        if (document.getElementById('stat-security')) document.getElementById('stat-security').innerText = onlineCount > 0 ? "Active" : "Secure";
+
         document.getElementById('stat-activity').innerText = totalCount > 0 ? "92%" : "0%";
 
         // Update Status Badge and Dot
@@ -211,8 +222,20 @@ function syncDashboardWithFirebase() {
         // 2. Update App Info (License Section)
         if (data.AppStats) {
             const approvedDate = new Date(data.AppStats.approved_date);
-            document.getElementById('license-expire').innerText = `Approved: ${approvedDate.toLocaleDateString()}`;
-            document.getElementById('license-days').innerText = data.AppStats.security_key || "SECURE_ADMIN";
+            const expireDate = new Date(approvedDate);
+            expireDate.setDate(approvedDate.getDate() + 30);
+            
+            const now = new Date();
+            const timeDiff = expireDate.getTime() - now.getTime();
+            const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+            const approvedEl = document.getElementById('license-approved');
+            const expireEl = document.getElementById('license-expire');
+            const daysLeftEl = document.getElementById('license-days-left');
+
+            if (approvedEl) approvedEl.innerText = `Approved: ${approvedDate.toLocaleDateString('en-GB')}`;
+            if (expireEl) expireEl.innerText = `Expired: ${expireDate.toLocaleDateString('en-GB')}`;
+            if (daysLeftEl) daysLeftEl.innerText = `${daysLeft > 0 ? daysLeft : 0} Days Left`;
         }
 
         // Note: Admin Status Logs container was removed from Home Fragment
@@ -1379,15 +1402,20 @@ function switchTab(tabId, pushHistory = true) {
         const navBtn = document.getElementById(`nav-${id}`);
         
         if (section) {
+            // Clear existing indicator dots
+            const existingDot = navBtn?.querySelector('.active-dot');
+            if (existingDot) existingDot.remove();
+
             if (id === tabId) {
                 section.classList.remove('hidden');
                 if (navBtn) {
-                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-indigo-600 scale-110";
+                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-indigo-400 scale-110";
+                    navBtn.innerHTML += '<span class="active-dot w-1 h-1 bg-indigo-400 rounded-full mt-0.5"></span>';
                 }
             } else {
                 section.classList.add('hidden');
                 if (navBtn) {
-                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-slate-400 opacity-60";
+                    navBtn.className = "nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300 text-white/30";
                 }
             }
         }

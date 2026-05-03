@@ -10,6 +10,10 @@ body { font-family: 'Poppins', sans-serif; overflow-x: hidden; }
 
 .glass { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); }
 
+.neon-border-top { border-top: 1px solid rgba(99, 102, 241, 0.5); box-shadow: 0 -4px 15px rgba(99, 102, 241, 0.3); }
+.neon-border-bottom { border-bottom: 1px solid rgba(99, 102, 241, 0.5); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
+.active-dot { box-shadow: 0 0 10px #6366f1, 0 0 20px #6366f1; }
+
 .gold-glow { text-shadow: 0 0 10px rgba(250, 204, 21, 0.5); }
 
 .glass-card {

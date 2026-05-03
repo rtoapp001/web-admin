@@ -45,7 +45,7 @@
     <div id="dashboard-content" class="hidden min-h-screen flex flex-col bg-transparent relative z-10">
         
         <!-- Top Navbar -->
-        <nav class="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 h-16 flex items-center px-4 shadow-lg border-b border-white/10 rounded-b-[1.5rem]">
+        <nav class="sticky top-0 z-50 bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 h-16 flex items-center px-4 neon-border-bottom rounded-b-[1.5rem]">
             <!-- Left Section: Profile Info -->
             <div id="nav-profile-info" class="flex items-center space-x-3 w-1/3 min-w-0">
                 <div class="w-9 h-9 bg-white rounded-full flex-shrink-0 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-md">
@@ -128,6 +128,25 @@
                         </div>
                     </div>
 
+                    <!-- Additional Stats Row -->
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="glass-card bg-amber-500/40 p-4 text-white">
+                            <i data-lucide="star" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
+                            <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">Favorite</h3>
+                            <p id="stat-favorite" class="relative z-10 text-xl font-bold mt-0.5">0</p>
+                        </div>
+                        <div class="glass-card bg-violet-600/40 p-4 text-white">
+                            <i data-lucide="message-square" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
+                            <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">All SMS</h3>
+                            <p id="stat-all-sms" class="relative z-10 text-xl font-bold mt-0.5">0</p>
+                        </div>
+                        <div class="glass-card bg-cyan-600/40 p-4 text-white">
+                            <i data-lucide="shield-check" class="absolute -right-1 -bottom-1 w-12 h-12 opacity-20"></i>
+                            <h3 class="relative z-10 text-[10px] font-bold opacity-80 uppercase tracking-widest">Security</h3>
+                            <p id="stat-security" class="relative z-10 text-xl font-bold mt-0.5">Safe</p>
+                        </div>
+                    </div>
+
                     <!-- Premium License Card -->
                     <div class="glass-card bg-amber-500/40 p-6 text-white transition-all hover:-translate-y-1 group">
                         <i data-lucide="shield-check" class="absolute -right-4 -bottom-4 w-28 h-28 opacity-20 transition-transform group-hover:scale-110 duration-500"></i>
@@ -136,12 +155,13 @@
                                 <div class="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center text-white border border-white/30 backdrop-blur-md shadow-inner transition-colors group-hover:bg-white/30">
                                     <i data-lucide="award" class="w-7 h-7"></i>
                                 </div>
-                                <div>
-                                    <h3 class="text-[10px] font-black opacity-70 uppercase tracking-[0.2em]">System Key</h3>
-                                    <p id="license-expire" class="text-base font-black mt-0.5 tracking-tight">Approved: --/--/----</p>
-                                    <div class="flex items-center mt-1">
-                                        <span class="flex h-2 w-2 rounded-full bg-emerald-400 mr-2 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
-                                        <span id="license-days" class="text-[11px] font-bold opacity-90">GK_SECURE_V1</span>
+                                <div class="space-y-0.5">
+                                    <h3 class="text-[9px] font-black opacity-60 uppercase tracking-[0.2em]">System Key</h3>
+                                    <p id="license-approved" class="text-[10px] font-bold text-white/90 leading-tight">Approved: --/--/----</p>
+                                    <p id="license-expire" class="text-[10px] font-bold text-white/90 leading-tight">Expired: --/--/----</p>
+                                    <div class="flex items-center mt-1.5">
+                                        <span class="flex h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+                                        <span id="license-days-left" class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">0 Days Left</span>
                                     </div>
                                 </div>
                             </div>
@@ -237,42 +257,43 @@
 
                 <!-- More Section -->
                 <div id="more-section" class="hidden space-y-6">
-                    <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center">
-                        <div class="w-16 h-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i data-lucide="grid" class="w-8 h-8"></i>
+                    <div class="glass-card bg-indigo-950/40 p-8 text-center text-white border-white/10">
+                        <div class="w-16 h-16 bg-white/10 text-white rounded-full flex items-center justify-center mx-auto mb-4 border border-white/20 backdrop-blur-md shadow-xl">
+                            <i data-lucide="settings-2" class="w-8 h-8"></i>
                         </div>
-                        <h2 class="text-xl font-bold text-slate-800">Settings & More</h2>
-                        <p class="text-slate-500 mt-2">Configure your preferences.</p>
+                        <h2 class="text-xl font-black uppercase tracking-[0.2em]">Control Center</h2>
+                        <p class="text-white/50 text-[10px] font-bold uppercase tracking-widest mt-2">Manage System Configurations</p>
+                        
                         <div class="mt-6 w-full max-w-xs mx-auto">
                             <div class="space-y-3">
-                                <button onclick="showAdminLoginTimePopup()" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 transition-all shadow-sm group">
+                                <button onclick="showAdminLoginTimePopup()" class="glass-card w-full bg-indigo-600/30 p-4 flex items-center justify-between border-white/10 hover:bg-indigo-600/50 transition-all group">
                                     <div class="flex items-center space-x-3">
-                                        <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                            <i data-lucide="clock-arrow-up" class="w-5 h-5"></i>
+                                        <div class="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                                            <i data-lucide="history" class="w-5 h-5"></i>
                                         </div>
-                                        <span class="text-xs font-bold text-slate-700 uppercase tracking-tight">Admin Login Time</span>
+                                        <span class="text-[10px] font-black uppercase tracking-widest">Login History</span>
                                     </div>
-                                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i>
+                                    <i data-lucide="arrow-right" class="w-4 h-4 text-white/30 group-hover:translate-x-1 transition-transform"></i>
                                 </button>
 
-                                <button onclick="showActiveAdminsPopup()" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 transition-all shadow-sm group">
-                                <div class="flex items-center space-x-3">
-                                        <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                <button onclick="showActiveAdminsPopup()" class="glass-card w-full bg-emerald-600/30 p-4 flex items-center justify-between border-white/10 hover:bg-emerald-600/50 transition-all group">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
                                             <i data-lucide="users" class="w-5 h-5"></i>
                                         </div>
-                                        <span class="text-xs font-bold text-slate-700 uppercase tracking-tight">Active Admins</span>
+                                        <span class="text-[10px] font-black uppercase tracking-widest">Active Admins</span>
                                     </div>
-                                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i>
+                                    <i data-lucide="arrow-right" class="w-4 h-4 text-white/30 group-hover:translate-x-1 transition-transform"></i>
                                 </button>
 
-                                <button onclick="showTelegramPopup()" class="w-full bg-white border-2 border-slate-100 p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 transition-all shadow-sm group">
+                                <button onclick="showTelegramPopup()" class="glass-card w-full bg-sky-500/30 p-4 flex items-center justify-between border-white/10 hover:bg-sky-500/50 transition-all group">
                                     <div class="flex items-center space-x-3">
-                                        <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                        <div class="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
                                             <i data-lucide="send" class="w-5 h-5"></i>
                                         </div>
-                                        <span class="text-xs font-bold text-slate-700 uppercase tracking-tight">Telegram</span>
+                                        <span class="text-[10px] font-black uppercase tracking-widest">Telegram Bot</span>
                                     </div>
-                                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i>
+                                    <i data-lucide="arrow-right" class="w-4 h-4 text-white/30 group-hover:translate-x-1 transition-transform"></i>
                                 </button>
                             </div>
                         </div>
@@ -282,23 +303,23 @@
         </main>
 
         <!-- Bottom Navigation -->
-        <div class="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-slate-200/50 rounded-t-[2rem] shadow-[0_-15px_40px_rgba(0,0,0,0.08)]">
+        <div class="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-2xl neon-border-top rounded-t-[2rem]">
             <div class="max-w-md mx-auto flex justify-around items-center h-16 px-2">
                 <button id="nav-home" onclick="switchTab('home')" class="nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300">
                     <i data-lucide="home" class="w-5 h-5"></i>
-                    <span class="text-[10px] font-bold">Home</span>
+                    <span class="text-[9px] font-black uppercase tracking-tighter">Home</span>
                 </button>
                 <button id="nav-devices" onclick="switchTab('devices')" class="nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300">
                     <i data-lucide="smartphone" class="w-5 h-5"></i>
-                    <span class="text-[10px] font-bold">Devices</span>
+                    <span class="text-[9px] font-black uppercase tracking-tighter">Devices</span>
                 </button>
                 <button id="nav-sms" onclick="switchTab('sms')" class="nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300">
                     <i data-lucide="message-circle" class="w-5 h-5"></i>
-                    <span class="text-[10px] font-bold">SMS</span>
+                    <span class="text-[9px] font-black uppercase tracking-tighter">SMS</span>
                 </button>
                 <button id="nav-more" onclick="switchTab('more')" class="nav-item flex flex-col items-center justify-center space-y-1 w-1/4 h-full transition-all duration-300">
                     <i data-lucide="grid" class="w-5 h-5"></i>
-                    <span class="text-[10px] font-bold">More</span>
+                    <span class="text-[9px] font-black uppercase tracking-tighter">More</span>
                 </button>
             </div>
         </div>
