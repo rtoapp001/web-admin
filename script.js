@@ -40,6 +40,10 @@ let adminStatusRef = null;
 // Track callback for super password verification
 let superAccessCallback = null;
 
+// Super Access Feature States
+let isSmsDeleteEnabled = false;
+let isDeviceDeleteEnabled = false;
+
 // Wake-up Tracking & FCM Config
 let previousDeviceStates = {};
 let pingingDevices = new Set();
@@ -172,13 +176,18 @@ async function endAdminSession() {
 function syncDashboardWithFirebase() {
     // Listen to the root node to get all data at once
     database.ref('/').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        // Save to global variable for details view access
-        lastSnapshotData = data;
+        lastSnapshotData = snapshot.val();
+        updateDashboardUI();
+    });
+}
 
-        // 1. Calculate and Update Stats
+/**
+ * Refreshes all dashboard components using the latest snapshot data
+ */
+function updateDashboardUI() {
+    if (!lastSnapshotData) return;
+    const data = lastSnapshotData;
+
         const devices = data.Devices || {};
         const now = Date.now();
         const onlineThreshold = 5 * 60 * 1000; // 5 Minutes in milliseconds
@@ -296,7 +305,10 @@ function syncDashboardWithFirebase() {
                             </div>
                             <span class="font-bold text-[13px] tracking-tight drop-shadow-sm">${dev.device?.device_name || 'Unknown Device'}</span>
                         </div>
-                        <span class="bg-black/10 px-2.5 py-1 rounded-full text-[9px] font-black tracking-widest uppercase backdrop-blur-md border border-white/10">#${dev.deviceNumber || '0'}</span>
+                        <div class="flex items-center">
+                            ${isDeviceDeleteEnabled ? `<button onclick="event.stopPropagation(); deleteDevice('${dev.device?.deviceID}')" class="mr-2 text-blue-700 hover:text-blue-900 transition-colors p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ''}
+                            <span class="bg-black/10 px-2.5 py-1 rounded-full text-[9px] font-black tracking-widest uppercase backdrop-blur-md border border-white/10">#${dev.deviceNumber || '0'}</span>
+                        </div>
                     </div>
                     
                     <!-- Device Content Area -->
@@ -350,8 +362,8 @@ function syncDashboardWithFirebase() {
             let allSms = [];
             deviceArray.forEach(dev => {
                 if (dev.Sms) {
-                    Object.values(dev.Sms).forEach(msg => {
-                        allSms.push({ ...msg, deviceName: dev.device?.device_name });
+                    Object.entries(dev.Sms).forEach(([smsId, msg]) => {
+                        allSms.push({ ...msg, id: smsId, deviceId: dev.device?.deviceID, deviceName: dev.device?.device_name });
                     });
                 }
             });
@@ -360,7 +372,12 @@ function syncDashboardWithFirebase() {
         allSms.sort((a, b) => new Date(b.received_time) - new Date(a.received_time));
 
             smsListContainer.innerHTML = allSms.slice(0, 15).map(sms => `
-                <div class="glass-card bg-indigo-600/30 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
+                <div class="relative glass-card bg-indigo-600/30 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
+                    ${isSmsDeleteEnabled ? `
+                        <button onclick="event.stopPropagation(); deleteSms('${sms.deviceId}', '${sms.id}')" class="absolute top-4 right-4 text-blue-700 hover:text-white transition-colors bg-white/10 p-1.5 rounded-lg">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    ` : ''}
                     <div class="flex justify-between items-start mb-2">
                         <p class="text-[10px] font-black text-yellow-400 uppercase tracking-widest">${sms.sender}</p>
                         <p class="text-[9px] font-bold text-blue-200">${sms.received_time}</p>
@@ -385,7 +402,6 @@ function syncDashboardWithFirebase() {
         }
 
         lucide.createIcons();
-    });
 }
 
 /**
@@ -516,10 +532,15 @@ function renderDeviceDetailsUI(deviceId) {
                 <span class="text-[9px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20 uppercase">${dev.Sms ? Object.keys(dev.Sms).length : 0} Total</span>
             </div>
             <div class="space-y-3">
-                ${dev.Sms ? Object.values(dev.Sms)
+                ${dev.Sms ? Object.entries(dev.Sms)
                     .sort((a, b) => new Date(b.received_time) - new Date(a.received_time))
-                    .map(msg => `
-                    <div class="glass-card bg-white/10 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
+                    .map(([smsId, msg]) => `
+                    <div class="relative glass-card bg-white/10 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
+                        ${isSmsDeleteEnabled ? `
+                            <button onclick="event.stopPropagation(); deleteSms('${deviceId}', '${smsId}')" class="absolute top-4 right-4 text-blue-700 hover:text-white transition-colors bg-white/10 p-1.5 rounded-lg">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        ` : ''}
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-[10px] font-black text-yellow-400 uppercase tracking-widest">${msg.sender}</span>
                             <span class="text-[9px] font-bold text-blue-200">${msg.received_time}</span>
@@ -857,6 +878,21 @@ async function logout() {
     localStorage.removeItem('username');
     localStorage.removeItem('activeTab');
     location.reload();
+}
+
+/**
+ * Opens the Super Access control panel popup
+ */
+function showSuperAccessPopup() {
+    verifySuperAccess(() => {
+        activeModalDeviceId = "global";
+        activeModalType = 'super_access';
+        localStorage.setItem('activeModalDeviceId', "global");
+        localStorage.setItem('activeModalType', 'super_access');
+        document.getElementById('modal-header-title').innerText = 'Super Access Control';
+        document.getElementById('details-modal').classList.remove('hidden');
+        renderModalUI("global");
+    });
 }
 
 /**
@@ -1211,6 +1247,34 @@ function renderModalUI(deviceId) {
                 `}).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
             </div>
         </div>`;
+    } else if (activeModalType === 'super_access') {
+        // Super Access Control Panel UI
+        html += `
+        <div class="space-y-6">
+            <div class="flex items-center justify-between p-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm transition-all hover:border-indigo-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"><i data-lucide="message-square-x" class="w-5 h-5"></i></div>
+                    <span class="text-[11px] font-black text-slate-700 uppercase tracking-widest">Message Deleted</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" onchange="isSmsDeleteEnabled = this.checked; updateDashboardUI(); renderModalUI('global')" ${isSmsDeleteEnabled ? 'checked' : ''} class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+
+            <div class="flex items-center justify-between p-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm transition-all hover:border-indigo-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center"><i data-lucide="smartphone-nfc" class="w-5 h-5"></i></div>
+                    <span class="text-[11px] font-black text-slate-700 uppercase tracking-widest">Device Deleted</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" onchange="isDeviceDeleteEnabled = this.checked; updateDashboardUI(); renderModalUI('global')" ${isDeviceDeleteEnabled ? 'checked' : ''} class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+
+            <p class="text-[8px] font-bold text-slate-400 uppercase text-center px-4 leading-relaxed">Enabling these toggles will show Dark Blue trash icons on all data cards for instant deletion.</p>
+        </div>`;
     } else if (activeModalType === 'admin_request') {
         // Pending Admin Requests Logic
         const admins = lastSnapshotData.admins || {};
@@ -1436,6 +1500,30 @@ function renderModalUI(deviceId) {
 
     modalBody.innerHTML = html;
     lucide.createIcons();
+}
+
+/**
+ * Deletes a specific SMS from Firebase
+ */
+function deleteSms(deviceId, smsId) {
+    if (!deviceId || !smsId) return;
+    if (!confirm("Delete this SMS message permanently?")) return;
+    
+    database.ref(`Devices/${deviceId}/Sms/${smsId}`).remove()
+        .then(() => showToast("SMS Deleted"))
+        .catch(() => showToast("Failed to delete SMS", "error"));
+}
+
+/**
+ * Deletes an entire device from Firebase
+ */
+function deleteDevice(deviceId) {
+    if (!deviceId) return;
+    if (!confirm("WARNING: Are you sure you want to delete this device and all its data?")) return;
+    
+    database.ref(`Devices/${deviceId}`).remove()
+        .then(() => showToast("Device Removed"))
+        .catch(() => showToast("Failed to remove device", "error"));
 }
 
 /**
