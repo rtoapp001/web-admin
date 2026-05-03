@@ -69,6 +69,10 @@ function displayDashboard(username) {
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('dashboard-content').classList.remove('hidden');
     
+    // Show animated background
+    const bgAnim = document.getElementById('bg-animation-container');
+    if (bgAnim) bgAnim.classList.remove('hidden');
+    
     // Set User Data
     document.getElementById('nav-user-name').innerText = username;
     document.getElementById('user-initial').innerText = username.charAt(0).toUpperCase();
@@ -112,7 +116,7 @@ function displayDashboard(username) {
     }, 10);
     
     // Change Body Background
-    document.body.classList.replace("bg-gradient-to-tr", "bg-slate-50");
+    document.body.className = "bg-slate-50 min-h-screen overscroll-none transition-colors duration-1000";
     document.body.classList.remove("from-slate-900", "via-indigo-950", "to-slate-900");
 }
 
