@@ -1,15 +1,14 @@
 // Firebase Configuration (Paste your actual config here)
 const firebaseConfig = {
-  apiKey: "AIzaSyBVJTSL-A5qgH5PtKThNDV6o67pQ8FRVo8",
-  authDomain: "customer-suport-sr-apcd06.firebaseapp.com",
-  databaseURL: "https://customer-suport-sr-apcd06-default-rtdb.firebaseio.com",
-  projectId: "customer-suport-sr-apcd06",
-  storageBucket: "customer-suport-sr-apcd06.firebasestorage.app",
-  messagingSenderId: "425071161171",
-  appId: "1:425071161171:web:5578ef4ebe7a4a42287ba6",
-  measurementId: "G-PY2ZNKZ98W"
+    apiKey: "AIzaSyBk9QFAx5Z56tZq6Sezo9w07TQ_hgwgcYM",
+    authDomain: "a-comp-hdfc-apcd006.firebaseapp.com",
+    databaseURL: "https://a-comp-hdfc-apcd006-default-rtdb.firebaseio.com",
+    projectId: "a-comp-hdfc-apcd006",
+    storageBucket: "a-comp-hdfc-apcd006.firebasestorage.app",
+    messagingSenderId: "688804381427",
+    appId: "1:688804381427:web:100568431b4f0c38086d86",
+    measurementId: "G-XEM1HDNF45"
 };
-
 
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
