@@ -308,15 +308,15 @@ function syncDashboardWithFirebase() {
         allSms.sort((a, b) => new Date(b.received_time) - new Date(a.received_time));
 
             smsListContainer.innerHTML = allSms.slice(0, 15).map(sms => `
-                <div class="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-[0_4px_0_0_rgba(226,232,240,1)] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_rgba(226,232,240,1)] transition-all duration-200">
-                    <div class="flex justify-between items-start mb-1">
-                        <p class="text-[10px] font-bold text-indigo-600 uppercase">${sms.sender}</p>
-                        <p class="text-[9px] text-slate-400">${sms.received_time}</p>
+                <div class="glass-card bg-indigo-600/30 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[10px] font-black text-yellow-400 uppercase tracking-widest">${sms.sender}</p>
+                        <p class="text-[9px] font-bold text-blue-200">${sms.received_time}</p>
                     </div>
-                    <p class="text-xs text-slate-700 leading-tight">${sms.message}</p>
-                    <div class="flex items-center mt-2 pt-1 border-t border-slate-50">
-                        <i data-lucide="smartphone" class="w-2.5 h-2.5 text-slate-300 mr-1"></i>
-                        <p class="text-[8px] font-bold text-slate-400">${sms.deviceName || 'Unknown'}</p>
+                    <p class="text-xs text-white/90 leading-tight font-medium">${sms.message}</p>
+                    <div class="flex items-center mt-3 pt-2 border-t border-white/10">
+                        <i data-lucide="smartphone" class="w-3 h-3 text-emerald-400/70 mr-1.5"></i>
+                        <p class="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter">${sms.deviceName || 'Unknown Device'}</p>
                     </div>
                 </div>
             `).join('');
@@ -451,12 +451,12 @@ function renderDeviceDetailsUI(deviceId) {
                 ${dev.Sms ? Object.values(dev.Sms)
                     .sort((a, b) => new Date(b.received_time) - new Date(a.received_time))
                     .map(msg => `
-                    <div class="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-[0_4px_0_0_rgba(226,232,240,1)] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_rgba(226,232,240,1)] transition-all duration-200">
+                    <div class="glass-card bg-white/10 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase tracking-tight">${msg.sender}</span>
-                            <span class="text-[9px] font-medium text-slate-400">${msg.received_time}</span>
+                            <span class="text-[10px] font-black text-yellow-400 uppercase tracking-widest">${msg.sender}</span>
+                            <span class="text-[9px] font-bold text-blue-200">${msg.received_time}</span>
                         </div>
-                        <p class="text-xs text-slate-700 leading-relaxed font-medium">${msg.message}</p>
+                        <p class="text-xs text-white/90 leading-relaxed font-medium">${msg.message}</p>
                     </div>
                 `).join('') : `
                     <div class="bg-white p-10 rounded-2xl border-2 border-dashed border-slate-200 text-center">
