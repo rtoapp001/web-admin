@@ -116,7 +116,7 @@ function displayDashboard(username) {
     }, 10);
     
     // Change Body Background
-    document.body.className = "bg-slate-50 min-h-screen overscroll-none transition-colors duration-1000";
+    document.body.className = "bg-slate-50 min-h-screen overscroll-none";
     document.body.classList.remove("from-slate-900", "via-indigo-950", "to-slate-900");
 }
 

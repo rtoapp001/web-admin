@@ -16,7 +16,8 @@
             100% { transform: translate(0px, 0px) scale(1); }
         }
         .animate-blob {
-            animation: blob 7s infinite;
+            animation: blob 10s infinite alternate linear;
+            will-change: transform;
         }
         .animation-delay-2000 { animation-delay: 2s; }
         .animation-delay-4000 { animation-delay: 4s; }
@@ -62,7 +63,7 @@
     </div>
 
     <!-- Dashboard Content -->
-    <div id="dashboard-content" class="hidden min-h-screen flex flex-col bg-slate-50/40 backdrop-blur-[100px] relative z-10">
+    <div id="dashboard-content" class="hidden min-h-screen flex flex-col bg-slate-50/60 relative z-10">
         
         <!-- Top Navbar -->
         <nav class="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-white/20 px-3 py-2 flex items-center h-16 shadow-sm">
@@ -297,7 +298,7 @@
         </main>
 
         <!-- Bottom Navigation -->
-        <div class="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-200 px-6 py-3 z-50">
+        <div class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-slate-200/50 px-6 py-3 z-[60] shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.05)]">
             <div class="max-w-md mx-auto flex justify-between items-center">
                 <button id="nav-home" onclick="switchTab('home')" class="nav-item flex flex-col items-center space-y-1 text-indigo-600">
                     <i data-lucide="home" class="w-6 h-6"></i>
